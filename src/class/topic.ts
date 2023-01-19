@@ -16,13 +16,12 @@ export class TopicEmitter extends EventEmitter<{
   'ready' : [ TopicEmitter ]
   [ k : string ] : any[]
 }> {
-
   private readonly _topic    : string
   public  readonly client    : NostrClient
   public  readonly sub       : Subscription
   public  readonly encrypted : boolean
 
-  constructor(
+  constructor (
     client  : NostrClient,
     topic   : string,
     options : TopicOptions = {}
@@ -36,8 +35,12 @@ export class TopicEmitter extends EventEmitter<{
     this.encrypted = encrypted
 
     this.sub._updateHook = this._updateHook.bind(this)
-    this.sub.on('event', this._eventHandler.bind(this))
-    this.sub.on('ready', () => this.emit('ready', this))
+
+    this.sub.on('ready', () => { this.emit('ready', this) })
+
+    this.sub.on('event', (event : SignedEvent) => {
+      void this._eventHandler(event)
+    })
   }
 
   public get cipher () : Promise<Cipher> {
@@ -46,20 +49,20 @@ export class TopicEmitter extends EventEmitter<{
 
   public get topic () : Promise<string> {
     return (this.encrypted)
-      ? this.cipher.then(cipher => cipher.hashtag)
-      : new Promise(res => res(this._topic))
+      ? this.cipher.then(async cipher => cipher.hashtag)
+      : new Promise(resolve => { resolve(this._topic) })
   }
 
-  async _eventHandler(event : SignedEvent) : Promise<void> {
+  async _eventHandler (event : SignedEvent) : Promise<void> {
     const emitEvent = new EmitEvent(event, this)
-    const isEncrypted = (this.encrypted && await emitEvent.isDecipherable) 
+    const isEncrypted = (this.encrypted && await emitEvent.isDecipherable)
     const [ eventName, payload ] = (isEncrypted)
       ? JSON.parse(await emitEvent.decrypt())
       : emitEvent.content
     this.emit(eventName, payload, emitEvent)
   }
 
-  async _updateHook() : Promise<void> {
+  async _updateHook () : Promise<void> {
     const tag = await this.topic
     this.sub.filter['#t'] = [ tag ]
   }
@@ -69,7 +72,7 @@ export class TopicEmitter extends EventEmitter<{
     payload   : Json,
     template ?: EventDraft
   ) : Promise<AckEnvelope | undefined> {
-    let tags    = template?.tags ?? []
+    const tags    = template?.tags ?? []
     let content = JSON.stringify([ eventName, payload ])
 
     if (this.encrypted) {
@@ -77,7 +80,7 @@ export class TopicEmitter extends EventEmitter<{
       content = await cipher.encrypt(content)
     }
 
-    tags.push(['t', await this.topic])
+    tags.push([ 't', await this.topic ])
     return this.client.publish({ ...template, content, tags })
   }
 }

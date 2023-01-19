@@ -11,7 +11,6 @@ export class Subscription extends EventEmitter<{
   'event' : [ SignedEvent  ]
   [ k : string ] : any[]
 }> {
-
   public readonly client : NostrClient
   public readonly id     : string
 
@@ -28,23 +27,19 @@ export class Subscription extends EventEmitter<{
     this.client = client
     this.filter = filter
     this.subscribed = false
-    this._updateHook = () => new Promise((res) => res())
+    this._updateHook = async () => new Promise((resolve) => { resolve() })
 
     this.client.on(this.id, this._eventHandler.bind(this))
+
     this.client.on('ready', () => {
-      this._updateHook().then(() => this.update())
+      void this._updateHook().then(async () => this.update())
     })
   }
 
-  async _eventHandler (type : string, ...args : any[]) : Promise<void> {
+  private _eventHandler (type : string, ...args : any[]) : void {
     /** Handle incoming events from the client emitter. */
     this.emit(type, ...args)
   }
-
-  // public async activate() : Promise<void> {
-  //   /** Activate a new subscription. */
-  //   if (!this.subscribed) await this.update()
-  // }
 
   public async update (filter : Filter = this.filter) : Promise<void> {
     /** send a subscription request to the relay. */
@@ -53,16 +48,17 @@ export class Subscription extends EventEmitter<{
       const message = JSON.stringify([ 'REQ', this.id, filter ])
       const timeout = this.client.options.timeout
       const errmsg  = Error(`Subscription ${this.id} timed out!`)
-      const timer   = setTimeout(() => reject(errmsg), timeout)
+      const timer   = setTimeout(() => { reject(errmsg) }, timeout)
       this.within('eose', () => {
         // If we receive an eose event,
         // the subscription is ready.
+        clearTimeout(timer)
         this.subscribed = true
         this.emit('ready', this)
-        resolve(clearTimeout(timer))
+        resolve()
       }, timeout)
       // Send the subscription request to the relay.
-      this.client.send(message)
+      void this.client.send(message)
     })
   }
 

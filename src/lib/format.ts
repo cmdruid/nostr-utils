@@ -52,7 +52,7 @@ function b64decode (
     : hexToBytes(Buffer.from(string, 'base64url').toString('utf8'))
 }
 
-function isJSON(string : string) : boolean {
+function isJSON (string : string) : boolean {
   try { JSON.parse(string); return true } catch { return false }
 }
 

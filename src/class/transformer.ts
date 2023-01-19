@@ -13,7 +13,7 @@ type TransformReturn<T, C> = (
 ) => Promise<TransformOutput<T>>
 
 export type Middleware<T, C> = (
-  input   : T, 
+  input   : T,
   context : C
 ) => Promise<T | null> | T | null
 
@@ -29,7 +29,7 @@ export class Transformer<T, C> {
   public readonly context : C
   public readonly methods : Array<Middleware<T, C>>
   public catcher ?: errorHandler
-  
+
   constructor (context : C) {
     this.context = context
     this.methods = []

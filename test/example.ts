@@ -12,7 +12,7 @@ client.on('ready', (client) => {
   // once it has connected to a relay.
   console.log('Connected to ' + client.address)
   // It is easy to relay a message to the world.
-  client.relay({ content: 'Hello, world!' })
+  client.publish({ content: 'Hello, world!' })
 })
 
 // Creating a new subscription is easy.
@@ -37,14 +37,14 @@ sub.on('event', (event) => {
 
 // You can create an event 'channel' by specifying a topic,
 // with options to configure encryption and custom filters.
-const topic = client.topic('secretchat', { encrypt: true })
+const topic = client.topic('secretchat', { encrypted: true })
 
 topic.on('ready', (emitter) => {
   // Topics also have a 'ready' event for
   // handing the flow of your application.
   console.log('Subscribed with ' + emitter.sub.id)
   // 
-  emitter.relay('hello', { content: 'This is a test!' })
+  emitter.send('hello', { content: 'This is a test!' })
 })
 
 topic.on('hello', (content) => {

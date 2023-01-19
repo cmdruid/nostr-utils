@@ -6,7 +6,7 @@ import { Tag }          from '@/schema/types'
 export class EmitEvent extends SignedEvent {
   public readonly emitter : TopicEmitter
 
-  constructor(
+  constructor (
     event   : SignedEvent,
     emitter : TopicEmitter
   ) {

@@ -28,7 +28,7 @@ export class Hash {
   }
 
   public rounds (num : number) : Hash {
-    // Set the number of rounds 
+    // Set the number of rounds
     // to use for the digest.
     this.rnds = num
     return this

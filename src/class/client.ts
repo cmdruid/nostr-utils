@@ -7,9 +7,9 @@ import { SignedEvent }   from '@/class/event/SignedEvent'
 import { Hex }           from '@/lib/format'
 import { validateEvent } from '@/lib/validate'
 
-import { 
-  Transformer, 
-  Middleware 
+import {
+  Transformer,
+  Middleware
 } from '@/class/transformer'
 
 import {
@@ -31,11 +31,11 @@ type ClientMiddleware  = Middleware<SignedEvent, NostrClient>
 
 export class NostrClient extends EventEmitter <{
   // Type mapping for our client event emitter.
-  'ready'  : [ NostrClient ],
-  'notice' : [ string      ],
-  'info'   : [ string      ],
-  'debug'  : [ string      ],
-  'error'  : [ unknown     ],
+  'ready'  : [ NostrClient ]
+  'notice' : [ string      ]
+  'info'   : [ string      ]
+  'debug'  : [ string      ]
+  'error'  : [ unknown     ]
   [k : string ] : any
 }> {
   public  readonly id         : string
@@ -72,7 +72,7 @@ export class NostrClient extends EventEmitter <{
     }
 
     this.middleware.use(validateEvent)
-    this.middleware.catch((err) => this.emit('error', err))
+    this.middleware.catch((err) => { this.emit('error', err) })
   }
 
   get initialized () : boolean {
@@ -131,7 +131,7 @@ export class NostrClient extends EventEmitter <{
           if (type === 'EOSE') {
             // If end-of-subscription message
             // emit with the subId as topic.
-            return this.emit(subId, 'eose')
+            this.emit(subId, 'eose'); return
           }
           if (type === 'EVENT') {
             // If event message, process the raw event.
@@ -150,18 +150,18 @@ export class NostrClient extends EventEmitter <{
         // If an ack message, break down the message.
         const [ eventId, ok, ...rest ] = message.slice(1)
         // Emit results with the eventId as a topic.
-        return this.emit(eventId, ok, rest)
+        this.emit(eventId, ok, rest); return
       }
       if (type === 'NOTICE') {
         // If we get a message from the relay, emit it directly.
-        return this.emit('notice', message.slice(1))
+        this.emit('notice', message.slice(1)); return
       }
       // We shouldn't get to this point.
       throw TypeError(`Invalid type from relay: ${type}`)
     } catch (err) { this.emit('error', err) }
   }
 
-  public async importSeed(string : string) {
+  public async importSeed (string : string) : Promise<void> {
     this.keypair = await KeyPair.fromSecret(string)
   }
 
@@ -187,7 +187,7 @@ export class NostrClient extends EventEmitter <{
 
       this.socket.addEventListener(
         /* Listener for the websocket message event. */
-        'message', (event : WebSocket.MessageEvent) => { this._messageHandler(event) }
+        'message', (event : WebSocket.MessageEvent) => { void this._messageHandler(event) }
       )
     }
 
@@ -204,15 +204,15 @@ export class NostrClient extends EventEmitter <{
       if (this.connected) resolve(this)
       setInterval(() => { if (this.connected) resolve(this) }, 500)
       // If the connection fails to resolve in time, throw rejection.
-      setTimeout(() => reject(Error(`Connection to ${address} timed out!`)), timeout)
+      setTimeout(() => { reject(Error(`Connection to ${address} timed out!`)) }, timeout)
     })
   }
 
-  public subscribe(filter ?: Filter) {
+  public subscribe (filter ?: Filter) : Subscription {
     return new Subscription(this, filter)
   }
 
-  public topic(topic : string, options ?: TopicOptions) {
+  public topic (topic : string, options ?: TopicOptions) : TopicEmitter {
     return new TopicEmitter(this, topic, options)
   }
 
@@ -220,15 +220,15 @@ export class NostrClient extends EventEmitter <{
     filter  : Filter,
     sorter ?: Sorter<SignedEvent>
   ) : Promise<SignedEvent[]> {
-    /** 
+    /**
      *  Create a one-time subscription that collects all
      *  events and returns then in an array. This process
      *  can be used to query data from a relay.
      */
     const selection : SignedEvent[] = []
     const sub = new Subscription(this, filter)
-    sub.on('eose', () => sub.cancel())
-    sub.on('event', (event) => void selection.push(event))
+    sub.on('eose', () => { sub.cancel() })
+    sub.on('event', (event) => selection.push(event))
     await sub.update()
     if (sorter !== undefined) selection.sort(sorter)
     return selection
@@ -257,7 +257,7 @@ export class NostrClient extends EventEmitter <{
     })
 
     return new Promise((resolve) => {
-      // Attach a temporary listener with the eventId as 
+      // Attach a temporary listener with the eventId as
       // topic, in case the relay sends an 'OK' response.
       const message = JSON.stringify([ 'EVENT', signedEvent ])
       const timeout = this.options.timeout
@@ -265,8 +265,8 @@ export class NostrClient extends EventEmitter <{
         const [ eventId ] = ack
         if (eventId === signedEvent.id) resolve(ack)
       }, timeout)
-      setTimeout(() => resolve(undefined), timeout)
-      this.send(message)
+      setTimeout(() => { resolve(undefined) }, timeout)
+      void this.send(message)
       this.emit('sent', signedEvent)
     })
 }
@@ -274,7 +274,7 @@ export class NostrClient extends EventEmitter <{
   public async sign (
     event : EventTemplate
   ) : Promise<Event> {
-    /** 
+    /**
      * Produce a hashed digest of the event data,
      * then return event with hash and signature.
      */
@@ -308,7 +308,7 @@ export class NostrClient extends EventEmitter <{
     this.emit('info', `[ Client ] Sent: ${message}`)
   }
 
-  public close() {
+  public close () : void {
     this.emit('info', '[ Client ] Closing socket connection...')
     setTimeout(() => {
       if (this.connected) this.socket?.close()

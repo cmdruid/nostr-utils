@@ -14,7 +14,7 @@ export class SignedEvent implements Event {
     this.client = client
     this.event  = (event instanceof SignedEvent)
       ? event.toJSON()
-      : event 
+      : event
   }
 
   public get isAuthor () : boolean {
@@ -25,7 +25,7 @@ export class SignedEvent implements Event {
     return KeyPair.verify(this.sig, this.id, this.pubkey)
   }
 
-  public get isJSON() : boolean {
+  public get isJSON () : boolean {
     return Text.isJSON(this.event.content as string)
   }
 
