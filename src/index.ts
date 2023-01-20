@@ -1,9 +1,12 @@
-import { Cipher } from '@/class/cipher'
-import { Hash }   from '@/class/hash'
+import { Cipher }      from '@/class/cipher'
+import { Hash }        from '@/class/hash'
+import { KeyPair }     from '@/class/keypair'
+import { NostrClient } from '@/class/client'
 import { Hex, Text, Base64 } from '@/lib/format'
 
+export default NostrClient
+
 export * from '@/class/client'
-export * from '@/class/keypair'
 export * from '@/class/subscription'
 export * from '@/class/topic'
 export * from '@/class/event/EmitEvent'
@@ -15,5 +18,6 @@ export const Utils = {
   Cipher,
   Hash,
   Hex,
+  KeyPair,
   Text
 }
