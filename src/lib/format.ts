@@ -1,4 +1,4 @@
-import { Json } from '@/schema/types'
+import { Json } from '../schema/types'
 
 const crypto = globalThis.crypto
 

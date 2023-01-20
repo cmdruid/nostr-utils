@@ -1,7 +1,7 @@
-import { NostrClient }      from '@/class/client'
-import { KeyPair }          from '@/class/keypair'
-import { Text } from '@/lib/format'
-import { Event, Json, Tag } from '@/schema/types'
+import { NostrClient }      from '../class/client'
+import { KeyPair }          from '../class/keypair'
+import { Text }             from '../lib/format'
+import { Event, Json, Tag } from '../schema/types'
 
 export class SignedEvent implements Event {
   public readonly event  : Event

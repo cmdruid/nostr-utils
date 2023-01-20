@@ -1,4 +1,4 @@
-import { Hex, Text } from '@/lib/format'
+import { Hex, Text } from '../lib/format'
 
 export class Hash {
   private init : boolean

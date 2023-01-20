@@ -1,7 +1,7 @@
-import { TopicEmitter } from '@/class/topic'
-import { SignedEvent }  from '@/class/event/SignedEvent'
-import { Base64 }       from '@/lib/format'
-import { Tag }          from '@/schema/types'
+import { TopicEmitter } from '../class/topic'
+import { SignedEvent }  from './SignedEvent'
+import { Base64 }       from '../lib/format'
+import { Tag }          from '../schema/types'
 
 export class EmitEvent extends SignedEvent {
   public readonly emitter : TopicEmitter

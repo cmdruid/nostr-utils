@@ -1,6 +1,6 @@
 import { schnorr } from '@noble/secp256k1'
-import { Hash }    from '@/class/hash'
-import { Hex }     from '@/lib/format'
+import { Hash }    from './hash'
+import { Hex }     from '../lib/format'
 
 async function sign (
   message    : string | Uint8Array,

@@ -1,5 +1,5 @@
-import { Hash }              from '@/class/hash'
-import { Base64, Hex, Text } from '@/lib/format'
+import { Hash }              from './hash'
+import { Base64, Hex, Text } from '../lib/format'
 
 const crypto = globalThis.crypto
 

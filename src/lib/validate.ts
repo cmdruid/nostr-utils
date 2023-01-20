@@ -1,5 +1,5 @@
-import { SignedEvent } from '@/class/event/SignedEvent'
-import { NostrClient } from '@/class/client'
+import { SignedEvent } from '../event/SignedEvent'
+import { NostrClient } from '../class/client'
 
 export async function validateEvent (
   event  : SignedEvent,

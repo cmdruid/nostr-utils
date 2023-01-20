@@ -1,16 +1,17 @@
 import WebSocket         from 'ws'
-import { Hash }          from '@/class/hash'
-import { KeyPair }       from '@/class/keypair'
-import { EventEmitter }  from '@/class/emitter'
-import { Subscription }  from '@/class/subscription'
-import { SignedEvent }   from '@/class/event/SignedEvent'
-import { Hex }           from '@/lib/format'
-import { validateEvent } from '@/lib/validate'
+import { Hash }          from './hash'
+import { KeyPair }       from './keypair'
+import { EventEmitter }  from './emitter'
+import { Subscription }  from './subscription'
+import { TopicEmitter }  from './topic'
+import { SignedEvent }   from '../event/SignedEvent'
+import { Hex }           from '../lib/format'
+import { validateEvent } from '../lib/validate'
 
 import {
   Transformer,
   Middleware
-} from '@/class/transformer'
+} from './transformer'
 
 import {
   ClientConfig,
@@ -23,8 +24,7 @@ import {
   AckEnvelope,
   Sorter,
   TopicOptions
-} from '@/schema/types'
-import { TopicEmitter } from './topic'
+} from '../schema/types'
 
 type ClientTransformer = Transformer<SignedEvent, NostrClient>
 type ClientMiddleware  = Middleware<SignedEvent, NostrClient>

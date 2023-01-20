@@ -1,16 +1,16 @@
-import { NostrClient }  from '@/class/client'
-import { Cipher }       from '@/class/cipher'
-import { EventEmitter } from '@/class/emitter'
-import { Subscription } from '@/class/subscription'
-import { SignedEvent }  from '@/class/event/SignedEvent'
-import { EmitEvent }    from '@/class/event/EmitEvent'
+import { NostrClient }  from './client'
+import { Cipher }       from './cipher'
+import { EventEmitter } from './emitter'
+import { Subscription } from './subscription'
+import { SignedEvent }  from '../event/SignedEvent'
+import { EmitEvent }    from '../event/EmitEvent'
 
 import {
   AckEnvelope,
   EventDraft,
   Json,
   TopicOptions
-} from '@/schema/types'
+} from '../schema/types'
 
 export class TopicEmitter extends EventEmitter<{
   'ready' : [ TopicEmitter ]

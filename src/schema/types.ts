@@ -1,4 +1,4 @@
-import { SignedEvent } from '@/class/event/SignedEvent'
+import { SignedEvent } from '../event/SignedEvent'
 
 export type Tag     = string  | number | boolean
 export type Literal = string  | number | boolean | null

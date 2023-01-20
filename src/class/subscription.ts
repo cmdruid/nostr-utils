@@ -1,8 +1,8 @@
-import { NostrClient }  from '@/class/client'
-import { EventEmitter } from '@/class/emitter'
-import { SignedEvent }  from '@/class/event/SignedEvent'
-import { Hex }          from '@/lib/format'
-import { Filter }       from '@/schema/types'
+import { NostrClient }  from './client'
+import { EventEmitter } from './emitter'
+import { SignedEvent }  from '../event/SignedEvent'
+import { Hex }          from '../lib/format'
+import { Filter }       from '../schema/types'
 
 type UpdateHook = () => Promise<void>
 
