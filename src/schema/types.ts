@@ -23,9 +23,13 @@ export interface ClientOptions {
   filter  : Filter
 }
 
-export interface TopicOptions {
+export interface ChannelConfig {
   filter    ?: Filter
+  template  ?: EventDraft
   encrypted ?: boolean
+  secret    ?: string
+  secretKey ?: string | Uint8Array
+  sharedPub ?: string | Uint8Array
 }
 
 export interface Event {
@@ -48,6 +52,9 @@ export interface EventDraft {
   content    ?: Json
   sig        ?: string
   tags       ?: Tag[][]
+  secret     ?: string
+  secretKey  ?: string | Uint8Array
+  sharedPub  ?: string | Uint8Array
 }
 
 export interface EventTemplate {

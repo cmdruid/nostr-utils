@@ -4,7 +4,7 @@ import { sleep } from './utils.js'
 import { NostrClient, TopicEmitter } from '../../src/index.js'
 
 const client = new NostrClient({ selfsub: true })
-const topic  = client.topic('testing')
+const topic  = client.topic('testing', { encrypted: true })
 
 await client.connect('wss://nostr.zebedee.cloud')
 

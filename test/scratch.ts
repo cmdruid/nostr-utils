@@ -42,17 +42,16 @@ sub.on('event', (event) => {
 
 // You can create an event 'channel' by specifying a topic.
 // We can also enable end-to-end encryption of all messages.
-const topic = client.topic('secretchat', { encrypted: true })
+const channel = client.channel('secretchat', { secret: 'superisatestnet' })
 
-topic.on('ready', (topic) => {
+channel.on('ready', (channel) => {
   // Topics also have a 'ready' event for
   // handing the flow of your application.
-  console.log('Subscribed with filter:', topic.sub.filter)
-  // 
-  topic.send('hello', { name: 'Bob', planet: 'Earth' })
+  console.log('Subscribed with filter:', channel.sub.filter)
+  channel.send('hello', { name: 'Bob', planet: 'Earth' })
 })
 
-topic.on('hello', (content) => {
+channel.on('hello', (content) => {
   // Topics provide their own internal event bus,
   // so anyone can publish and subscribe to your
   // custom events within the topic channel.
@@ -60,11 +59,11 @@ topic.on('hello', (content) => {
   console.log(`Hello ${name} from planet ${planet}!`, content)
 })
 
-topic.on('ALL', (eventName, _content, event) => {
+channel.on('ALL', (eventName, _content, event) => {
   // All emitters have an 'ALL' event, which will
   // subscribe you to all events on that emitter.
 
-  // If encryption is en, (_content, event)abled, the contents of the
+  // If encryption is enabled, the contents of the
   // topic channel will be group end-to-end encrypted.
   if (eventName !== 'ready') {
     console.log('Intercepted event:', eventName)

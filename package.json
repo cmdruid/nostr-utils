@@ -45,7 +45,8 @@
   },
   "dependencies": {
     "@noble/secp256k1": "^1.2.14",
-    "ws": "^8.9.0"
+    "ws": "^8.9.0",
+    "zod": "^3.20.2"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^23.0.2",

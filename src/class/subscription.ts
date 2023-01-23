@@ -11,8 +11,8 @@ export class Subscription extends EventEmitter<{
   'event' : [ SignedEvent  ]
   [ k : string ] : any[]
 }> {
-  public readonly client : NostrClient
-  public readonly id     : string
+  public readonly client  : NostrClient
+  public readonly id      : string
 
   public filter      : Filter
   public _updateHook : UpdateHook
@@ -23,10 +23,10 @@ export class Subscription extends EventEmitter<{
     filter : Filter = client.filter
   ) {
     super()
-    this.id     = Hex.random(16)
-    this.client = client
-    this.filter = filter
-    this.subscribed = false
+    this.id          = Hex.random(16)
+    this.client      = client
+    this.filter      = filter
+    this.subscribed  = false
     this._updateHook = async () => new Promise((resolve) => { resolve() })
 
     this.client.on(this.id, this._eventHandler.bind(this))

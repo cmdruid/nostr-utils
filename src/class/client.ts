@@ -1,12 +1,15 @@
 import WebSocket         from 'ws'
+import { Cipher }        from './cipher'
 import { Hash }          from './hash'
 import { KeyPair }       from './keypair'
 import { EventEmitter }  from './emitter'
 import { Subscription }  from './subscription'
-import { TopicEmitter }  from './topic'
+import { EventChannel }  from './channel'
 import { SignedEvent }   from '../event/SignedEvent'
 import { Hex }           from '../lib/format'
 import { validateEvent } from '../lib/validate'
+import { getSharedKey }  from '../lib/utils'
+import { decryptEvent }  from '../lib/decrypt'
 
 import {
   Transformer,
@@ -23,7 +26,7 @@ import {
   Tag,
   AckEnvelope,
   Sorter,
-  TopicOptions
+  ChannelConfig
 } from '../schema/types'
 
 type ClientTransformer = Transformer<SignedEvent, NostrClient>
@@ -38,8 +41,9 @@ export class NostrClient extends EventEmitter <{
   'error'  : [ unknown     ]
   [k : string ] : any
 }> {
-  public  readonly id         : string
-  public  readonly middleware : ClientTransformer
+  public readonly id         : string
+  public readonly middleware : ClientTransformer
+  public readonly secrets    : Map<string, Uint8Array>
 
   private keypair     : KeyPair
   public  address    ?: string
@@ -62,6 +66,7 @@ export class NostrClient extends EventEmitter <{
     super()
     this.id         = Hex.random(16)
     this.keypair    = new KeyPair(privkey)
+    this.secrets    = new Map()
     this.middleware = new Transformer(this as NostrClient)
     this.options    = { ...NostrClient.defaults, ...rest }
     this.tags       = this.options.tags
@@ -72,6 +77,7 @@ export class NostrClient extends EventEmitter <{
     }
 
     this.middleware.use(validateEvent)
+    this.middleware.use(decryptEvent)
     this.middleware.catch((err) => { this.emit('error', err) })
   }
 
@@ -135,7 +141,7 @@ export class NostrClient extends EventEmitter <{
           }
           if (type === 'EVENT') {
             // If event message, process the raw event.
-            const event = new SignedEvent(message[2], this)
+            const event = new SignedEvent(this, message[2])
             // Run the event through our middle-ware.
             const { ok, data } = await this.middleware.apply(event)
             // If data is ok, emit to the subId topic.
@@ -180,7 +186,6 @@ export class NostrClient extends EventEmitter <{
       this.socket  = new WebSocket(this.address)
 
       this.socket.addEventListener(
-
         /* Listener for the websocket open event. */
         'open', (event : WebSocket.Event) => { this._openHandler(event) }
       )
@@ -212,8 +217,8 @@ export class NostrClient extends EventEmitter <{
     return new Subscription(this, filter)
   }
 
-  public topic (topic : string, options ?: TopicOptions) : TopicEmitter {
-    return new TopicEmitter(this, topic, options)
+  public channel (topic : string, config ?: ChannelConfig) : EventChannel {
+    return new EventChannel(this, topic, config)
   }
 
   public async query (
@@ -241,18 +246,43 @@ export class NostrClient extends EventEmitter <{
     this.clearEvent(subId)
   }
 
+  public async getSecret (
+    eventDraft : EventDraft
+  ) : Promise<Uint8Array | undefined> {
+    const { secret, secretKey, sharedPub } = eventDraft
+    if (secret !== undefined) {
+      return Hash.from(secret).raw
+    } else if (sharedPub !== undefined) {
+      return getSharedKey(this.prvkey, sharedPub)
+    }
+    return (secretKey !== undefined)
+      ? Hex.normalize(secretKey)
+      : undefined
+  }
+
   public async publish (
-    draft : EventDraft
+    eventDraft  : EventDraft
   ) : Promise<AckEnvelope | undefined> {
     /** Publish an event message to the relay. */
+    let { content = '', tags = [] } = eventDraft
+
+    const secretKey = await this.getSecret(eventDraft)
+
+    if (secretKey !== undefined) {
+      const hint = await new Hash(secretKey).hex
+      if (!this.secrets.has(hint)) this.secrets.set(hint, secretKey)
+      if (typeof content !== 'string') content = JSON.stringify(content)
+      content = await Cipher.encrypt(content, secretKey)
+      tags.push([ 's', hint ])
+    }
 
     const signedEvent = await this.sign({
       // We are constructing a template of the event
       // that is needed for hashing and signing.
-      content    : draft.content ?? '',
+      content,
       created_at : Math.floor(Date.now() / 1000),
-      kind       : draft?.kind ?? this.options.kind,
-      tags       : [ ...this.tags, ...draft.tags ?? [] ],
+      kind       : eventDraft.kind ?? this.options.kind,
+      tags       : [ ...this.tags, ...tags ],
       pubkey     : this.pubkey
     })
 

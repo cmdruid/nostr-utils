@@ -1,15 +1,16 @@
+import { Cipher }           from '../class/cipher'
 import { NostrClient }      from '../class/client'
 import { KeyPair }          from '../class/keypair'
 import { Text }             from '../lib/format'
 import { Event, Json, Tag } from '../schema/types'
 
 export class SignedEvent implements Event {
-  public readonly event  : Event
   public readonly client : NostrClient
+  public readonly event  : Event
 
   constructor (
-    event  : Event | SignedEvent,
-    client : NostrClient
+    client : NostrClient,
+    event  : Event | SignedEvent
   ) {
     this.client = client
     this.event  = (event instanceof SignedEvent)
@@ -23,6 +24,13 @@ export class SignedEvent implements Event {
 
   public get isValid () : Promise<boolean> {
     return KeyPair.verify(this.sig, this.id, this.pubkey)
+  }
+
+  public get isEncrypted () : boolean {
+    return (
+      typeof this.event.content === 'string' &&
+      this.event.content.includes('?iv=')
+    )
   }
 
   public get isJSON () : boolean {
@@ -49,7 +57,7 @@ export class SignedEvent implements Event {
     return this.event.subject
   }
 
-  public get content () : Json {
+  public get content () : Json | string {
     return (this.isJSON)
       ? JSON.parse(this.event.content as string)
       : this.event.content
@@ -73,6 +81,22 @@ export class SignedEvent implements Event {
     return this.tags
       .filter(t => t[0] === 'e')
       .map(t => t.slice(1))
+  }
+
+  public get hashtags () : Tag[] {
+    return this.tags
+      .filter(t => t[0] === 't')
+      .map(t => t[1])
+  }
+
+  public getTags (tag : string) : Tag[][] {
+    return this.tags
+      .filter(t => t[0] === tag)
+      .map(t => t.slice(1))
+  }
+
+  public async decrypt (secret : string | Uint8Array) : Promise<string> {
+    return Cipher.decrypt(this.content as string, secret)
   }
 
   public toJSON () : Event {
