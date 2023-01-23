@@ -74,26 +74,26 @@ sub.on('event', (event) => {
   console.log('New event:', event.toJSON())
 })
 ```
-Topics are multi-cast event channels, where each message is tagged with a topic name. When `encrypt` is enabled, the topic name is used as a seed phrase for group end-to-end encryption (a hash is derived for tagging instead).
+Event channels tag each message with a topic name. When `secret` is used, all messages are end-to-end encryption via a hash of the secret phrase.
 ```ts
 
 // You can create an event 'channel' by specifying a topic.
 // We can also enable end-to-end encryption of all messages.
-const topic = client.topic('secretchat', { encrypted: true })
+const channel = client.channel('secretchat', { secret: 'superisatestnet' })
 
-topic.on('ready', (topic) => {
+channel.on('ready', (channel) => {
   // Topics also have a 'ready' event for
   // handing the flow of your application.
-  console.log('Subscribed with filter:', topic.sub.filter)
+  console.log('Subscribed with filter:', channel.sub.filter)
   // Topics have their own interface for sending events.
-  topic.send('spareGreeting', { name: 'Bob', planet: 'Earth' })
+  channel.send('spareGreeting', { name: 'Bob', planet: 'Earth' })
 })
 
 ```
-Topics feature a basic JSON-RPC interface, which can be used to create a custom protocol between subscribers.
+Channels feature a basic JSON-RPC interface, which can be used to create a custom protocol between subscribers.
 ```ts
 
-topic.on('spaceGreeting', (content, event) => {
+channel.on('spaceGreeting', (content, event) => {
   const { name, planet } = content
 
   console.log(`Hello ${name} from planet ${planet}!`, content)

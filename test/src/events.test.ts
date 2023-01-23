@@ -1,10 +1,10 @@
 import { Test }  from 'tape'
 import { sleep } from './utils.js'
 
-import { NostrClient, TopicEmitter } from '../../src/index.js'
+import { NostrClient, EventChannel } from '../../src/index.js'
 
 const client = new NostrClient({ selfsub: true })
-const topic  = client.topic('testing', { encrypted: true })
+const topic  = client.channel('testing', { secret : 'superisatestnet' })
 
 await client.connect('wss://nostr.zebedee.cloud')
 
@@ -19,7 +19,7 @@ export function eventTests(t : Test) {
   })
 }
 
-async function onTest(t : Test, topic : TopicEmitter) {
+async function onTest(t : Test, topic : EventChannel) {
   let state = ''
   t.plan(1)
   topic.on('onTest', (data, _) => {
@@ -30,7 +30,7 @@ async function onTest(t : Test, topic : TopicEmitter) {
   t.equal(state, 'pass 1', 'should update the state.')
 }
 
-async function onceTest(t : Test, topic : TopicEmitter) {
+async function onceTest(t : Test, topic : EventChannel) {
   let state = ''
 
   t.plan(2)
@@ -48,7 +48,7 @@ async function onceTest(t : Test, topic : TopicEmitter) {
   t.notEqual(state, 'pass 2', 'should fail to update the state.')
 }
 
-async function withinTest(t : Test, topic : TopicEmitter) {
+async function withinTest(t : Test, topic : EventChannel) {
   let state = ''
 
   t.plan(3)
