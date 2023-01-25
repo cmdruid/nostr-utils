@@ -1,19 +1,10 @@
 import { SignedEvent } from '../event/SignedEvent'
-import { NostrClient } from '../class/client'
 
 export async function validateEvent (
-  event  : SignedEvent,
-  client : NostrClient
+  event  : SignedEvent
 ) : Promise<SignedEvent | null> {
   // Verify that the signature is valid.
-  if (!await event.isValid) {
-    return null
-  }
-
-  // If the event is from ourselves, check the filter rules.
-  if (event.isAuthor && !client.options.selfsub) {
-    return null
-  }
-
-  return event
+  return (await event.isValid)
+    ? event
+    : null
 }

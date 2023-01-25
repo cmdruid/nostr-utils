@@ -57,10 +57,6 @@ export class Cipher {
     this.secretkey = Hex.normalize(secretkey)
   }
 
-  get hashtag () : Promise<string> {
-    return new Hash(this.secretkey).hex
-  }
-
   public async encrypt (message : string) : Promise<string> {
     return Cipher.encrypt(message, this.secretkey)
   }

@@ -3,8 +3,11 @@ import { sleep } from './utils.js'
 
 import { NostrClient, EventChannel } from '../../src/index.js'
 
-const client = new NostrClient({ selfsub: true })
-const topic  = client.channel('testing', { secret : 'superisatestnet' })
+const client = new NostrClient()
+const topic  = client.channel('testing', { 
+  secret : 'superisatestnet',
+  filter : { selfsub: true }
+})
 
 await client.connect('wss://nostr.zebedee.cloud')
 

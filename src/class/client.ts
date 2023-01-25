@@ -8,7 +8,6 @@ import { EventChannel }  from './channel'
 import { SignedEvent }   from '../event/SignedEvent'
 import { Hex }           from '../lib/format'
 import { validateEvent } from '../lib/validate'
-import { getSharedKey }  from '../lib/utils'
 import { decryptEvent }  from '../lib/decrypt'
 
 import {
@@ -22,7 +21,7 @@ import {
   EventDraft,
   EventTemplate,
   Filter,
-  ClientOptions,
+  ClientDefaults,
   Tag,
   AckEnvelope,
   Sorter,
@@ -49,28 +48,30 @@ export class NostrClient extends EventEmitter <{
   public  address    ?: string
   public  socket     ?: WebSocket
   public  filter      : Filter
-  public  options     : ClientOptions
+  public  options     : ClientDefaults
   public  tags        : Tag[][]
   public  ready       : boolean
 
   public static defaults = {
+    filter: {
+      selfsub : true,
+      since   : Math.floor(Date.now() / 1000)
+    },
     kind    : 29001,  // Default event type.
     tags    : [],     // Global tags for events.
-    selfsub : false,  // React to self-published events.
-    timeout : 5000,   // Timeout on relay events.
-    filter  : { since: Math.floor(Date.now() / 1000) }
+    timeout : 5000    // Timeout on relay events.
   }
 
-  constructor (options : ClientConfig = {}) {
-    const { privkey = Hex.random(32), ...rest } = options
+  constructor (config : ClientConfig = {}) {
+    const { privkey = Hex.random(32), ...rest } = config
     super()
     this.id         = Hex.random(16)
+    this.ready      = false
     this.keypair    = new KeyPair(privkey)
     this.secrets    = new Map()
     this.middleware = new Transformer(this as NostrClient)
     this.options    = { ...NostrClient.defaults, ...rest }
     this.tags       = this.options.tags
-    this.ready      = false
     this.filter     = {
       kinds: [ this.options.kind ],
       ...this.options.filter
@@ -233,7 +234,7 @@ export class NostrClient extends EventEmitter <{
     const selection : SignedEvent[] = []
     const sub = new Subscription(this, filter)
     sub.on('eose', () => { sub.cancel() })
-    sub.on('event', (event) => selection.push(event))
+    sub.on('event', (event) => { selection.push(event) })
     await sub.update()
     if (sorter !== undefined) selection.sort(sorter)
     return selection
@@ -253,7 +254,7 @@ export class NostrClient extends EventEmitter <{
     if (secret !== undefined) {
       return Hash.from(secret).raw
     } else if (sharedPub !== undefined) {
-      return getSharedKey(this.prvkey, sharedPub)
+      return this.keypair.getSharedKey(sharedPub)
     }
     return (secretKey !== undefined)
       ? Hex.normalize(secretKey)

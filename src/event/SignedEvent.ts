@@ -95,6 +95,11 @@ export class SignedEvent implements Event {
       .map(t => t.slice(1))
   }
 
+  public getTag (tag : string) : Tag | undefined {
+    const tags = this.getTags(tag)
+    return (tags.length > 0) ? tags[0][0] : undefined
+  }
+
   public async decrypt (secret : string | Uint8Array) : Promise<string> {
     return Cipher.decrypt(this.content as string, secret)
   }

@@ -4,11 +4,11 @@ import { SignedEvent }  from '../event/SignedEvent'
 import { Hex }          from '../lib/format'
 import { Filter }       from '../schema/types'
 
-type UpdateHook = () => Promise<void>
+type UpdateHook = (sub : Subscription) => void | Promise<void>
 
 export class Subscription extends EventEmitter<{
-  'ready' : [ Subscription ]
-  'event' : [ SignedEvent  ]
+  'ready'  : [ Subscription ]
+  'event'  : [ SignedEvent  ]
   [ k : string ] : any[]
 }> {
   public readonly client  : NostrClient
@@ -16,28 +16,36 @@ export class Subscription extends EventEmitter<{
 
   public filter      : Filter
   public _updateHook : UpdateHook
+  public selfsub     : boolean
   public subscribed  : boolean
 
   constructor (
     client : NostrClient,
     filter : Filter = client.filter
   ) {
+    const { selfsub = false, ...rest } = filter
     super()
     this.id          = Hex.random(16)
     this.client      = client
-    this.filter      = filter
+    this.filter      = rest
+    this.selfsub     = selfsub
     this.subscribed  = false
-    this._updateHook = async () => new Promise((resolve) => { resolve() })
+    this._updateHook = () => {}
 
     this.client.on(this.id, this._eventHandler.bind(this))
 
-    this.client.on('ready', () => {
-      void this._updateHook().then(async () => this.update())
+    this.client.on('ready', async () => {
+      await this._updateHook(this)
+      void this.update()
     })
   }
 
   private _eventHandler (type : string, ...args : any[]) : void {
     /** Handle incoming events from the client emitter. */
+    if (type === 'event') {
+      const event : SignedEvent = args[0]
+      if (!this.selfsub && event.isAuthor) return
+    }
     this.emit(type, ...args)
   }
 

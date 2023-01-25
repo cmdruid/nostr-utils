@@ -1,4 +1,4 @@
-import { schnorr } from '@noble/secp256k1'
+import { getSharedSecret, schnorr } from '@noble/secp256k1'
 import { Hash }    from './hash'
 import { Hex }     from '../lib/format'
 
@@ -22,8 +22,18 @@ async function verify (
   return schnorr.verify(sig, msg, key)
 }
 
+function getSharedKey (
+  privKey : string | Uint8Array,
+  recvPub : string | Uint8Array
+) : Uint8Array {
+  return getSharedSecret(
+    Hex.normalize(privKey),
+    Hex.normalize(recvPub)
+  )
+}
+
 export class KeyPair {
-  private readonly secret : Uint8Array
+  private readonly _privateKey : Uint8Array
 
   public static random () : KeyPair {
     return new KeyPair(Hex.random(32))
@@ -40,15 +50,15 @@ export class KeyPair {
   public static verify = verify
 
   constructor (bytes : string | Uint8Array) {
-    this.secret = Hex.normalize(bytes)
+    this._privateKey = Hex.normalize(bytes)
   }
 
   public get prvkey () : string {
-    return Hex.encode(this.secret)
+    return Hex.encode(this._privateKey)
   }
 
   public get pubraw () : Uint8Array {
-    return schnorr.getPublicKey(this.secret)
+    return schnorr.getPublicKey(this._privateKey)
   }
 
   public get pubkey () : string {
@@ -56,7 +66,7 @@ export class KeyPair {
   }
 
   public async sign (message : string) : Promise<string> {
-    return sign(message, this.secret)
+    return sign(message, this._privateKey)
   }
 
   public async verify (
@@ -64,5 +74,9 @@ export class KeyPair {
     signature : string | Uint8Array
   ) : Promise<boolean> {
     return verify(signature, message, this.pubraw)
+  }
+
+  public getSharedKey (pubkey : string | Uint8Array) : Uint8Array {
+    return getSharedKey(this._privateKey, pubkey)
   }
 }

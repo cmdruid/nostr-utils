@@ -7,20 +7,18 @@ export type Json    = Literal | Json[] | { [key : string] : Json }
 export type Sorter<T> = (a : T, b : T) => number
 
 export interface ClientConfig {
+  filter  ?: Filter
   kind    ?: number
   tags    ?: string[][]
-  selfsub ?: boolean
   timeout ?: number
-  filter  ?: Filter
   privkey ?: string | Uint8Array
 }
 
-export interface ClientOptions {
+export interface ClientDefaults {
+  filter  : Filter
   kind    : number
   tags    : string[][]
-  selfsub : boolean
   timeout : number
-  filter  : Filter
 }
 
 export interface ChannelConfig {
@@ -91,5 +89,6 @@ export interface Filter {
   since   ?: number
   until   ?: number
   limit   ?: number
+  selfsub ?: boolean
   [ key : string ] : Tag | Tag[] | undefined
 }

@@ -6,9 +6,8 @@
  *
  * */
 
-export type EventMap = Record<string, any>
-
 type EventKey <S extends EventMap> = string & keyof S
+type EventMap   = Record<string, any>
 type EventSet   = Set <Function>
 type EventStore = Map <keyof EventMap, EventSet>
 
@@ -35,14 +34,14 @@ export class EventEmitter<S extends EventMap = unknown[]> {
   }
 
   public on <K extends EventKey <S>> (
-    eventName : K, fn : (...args : S[K]) => void
+    eventName : K, fn : (...args : S[K]) => void | Promise<void>
   ) : void {
     /** Subscribe function to run on a given event. */
     this._getHandlers(eventName).add(fn)
   }
 
   public once <K extends EventKey <S>> (
-    eventName : K, fn : (...args : S[K]) => void
+    eventName : K, fn : (...args : S[K]) => void | Promise<void>
   ) : void {
     /** Subscribe function to run once, using
      *  a callback to cancel the subscription.
@@ -50,7 +49,7 @@ export class EventEmitter<S extends EventMap = unknown[]> {
 
     const onceFn = (...args : S[K]) : void => {
       this.removeHandler(eventName, onceFn)
-      fn.apply(this, args)
+      void fn.apply(this, args)
     }
 
     this.on(eventName, onceFn)
@@ -58,14 +57,14 @@ export class EventEmitter<S extends EventMap = unknown[]> {
 
   public within <K extends EventKey <S>> (
     eventName : K,
-    fn        : (...args : S[K]) => void,
+    fn        : (...args : S[K]) => void | Promise<void>,
     timeout   : number
   ) : void {
     /** Subscribe function to run within a given,
      *  amount of time, then cancel the subscription.
      * */
     const withinFn = (...args : S[K]) : void => {
-      fn.apply(this, args)
+      void fn.apply(this, args)
     }
     setTimeout(() => { this.removeHandler(eventName, withinFn) }, timeout)
 
@@ -78,14 +77,16 @@ export class EventEmitter<S extends EventMap = unknown[]> {
     /** Emit a series of arguments for the event, and
      *  present them to each subscriber in the list.
      * */
+    const methods : Function[] = []
     this._getHandlers(eventName).forEach((fn : Function) => {
-      // console.log(eventName, this)
-      fn.apply(this, args)
+      methods.push(fn.apply(this, args))
     })
 
-    this._getHandlers('ALL').forEach((fn : Function) => {
-      fn.apply(this, [ eventName, ...args ])
+    this._getHandlers('*').forEach((fn : Function) => {
+      methods.push(fn.apply(this, [ eventName, ...args ]))
     })
+
+    void Promise.allSettled(methods)
   }
 
   public removeHandler <K extends EventKey <S>> (

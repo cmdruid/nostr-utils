@@ -2,10 +2,7 @@
 import { NostrClient } from '../src/index'
 
 // Creating a new client is very simple.
-const client = new NostrClient({ 
-  selfsub: true,
-  timeout: 10000
-})
+const client = new NostrClient()
 
 // Change the private key of the client at any time.
 client.prvkey = '168b760cee3ce1c768d39bf133bf5a9e030f47670b6fbf9211a8bb278f4b4f69'
@@ -20,8 +17,8 @@ client.on('ready', (client) => {
 
 // Creating a new subscription is easy.
 const sub = client.subscribe({ 
-  kinds: [ 29002 ], 
-  since: Math.floor(Date.now() / 1000)
+  kinds   : [ 29002 ], 
+  since   : Math.floor(Date.now() / 1000)
 })
 
 sub.on('ready', (sub) => {
@@ -59,7 +56,7 @@ channel.on('hello', (content) => {
   console.log(`Hello ${name} from planet ${planet}!`, content)
 })
 
-channel.on('ALL', (eventName, _content, event) => {
+channel.on('*', (eventName, _content, event) => {
   // All emitters have an 'ALL' event, which will
   // subscribe you to all events on that emitter.
 

@@ -2,6 +2,7 @@ import { NostrClient }  from './client'
 import { EventEmitter } from './emitter'
 import { Subscription } from './subscription'
 import { SignedEvent }  from '../event/SignedEvent'
+import { EventSchema }  from '../schema/events'
 
 import {
   AckEnvelope,
@@ -9,7 +10,6 @@ import {
   Json,
   ChannelConfig
 } from '../schema/types'
-import { EventSchema } from '../schema/events'
 
 interface EventRecord { content : Json, event : SignedEvent }
 
@@ -39,7 +39,9 @@ export class EventChannel extends EventEmitter<{
     this.template  = { ...template, secret, secretKey, sharedPub }
     this.history   = new Map()
 
-    this.sub._updateHook = this._updateHook.bind(this)
+    this.sub._updateHook = (sub) => {
+      sub.filter['#t'] = [ this.topic ]
+    }
 
     this.sub.on('ready', () => { this.emit('ready', this) })
 
@@ -50,24 +52,12 @@ export class EventChannel extends EventEmitter<{
 
   private async _eventHandler (event : SignedEvent) : Promise<void> {
     const schema = EventSchema.channel
-    const [ eventName, payload ] = schema.parse(event.content)
-    this._updateHistory(eventName, payload, event)
-    this.emit(eventName, payload, event)
-  }
-
-  private async _updateHook () : Promise<void> {
-    this.sub.filter['#t'] = [ this.topic ]
-  }
-
-  private _updateHistory (
-    eventName : string,
-    content   : Json,
-    event     : SignedEvent
-  ) : void {
+    const [ eventName, content ] = schema.parse(event.content)
     if (!this.history.has(eventName)) {
       this.history.set(eventName, [])
     }
     this.history.get(eventName)?.push({ content, event })
+    this.emit(eventName, content, event)
   }
 
   public async send (
@@ -76,7 +66,7 @@ export class EventChannel extends EventEmitter<{
     template  : EventDraft = this.template
   ) : Promise<AckEnvelope | undefined> {
     const content = JSON.stringify([ eventName, payload ])
-    template.tags?.push([ 't', await this.topic ])
+    template.tags?.push([ 't', this.topic ])
     return this.client.publish({ ...template, content })
   }
 }
