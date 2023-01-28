@@ -16,12 +16,15 @@ const json : z.ZodType<Json> = z.lazy(() =>
   z.union([ literal, z.array(json), z.record(json) ])
 )
 
+const record = z.record(json)
+
 export const PrimeSchema = {
   string,
   hex,
   hash,
   literal,
   json,
+  record,
   signature,
   timestamp,
   address,

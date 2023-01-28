@@ -8,6 +8,8 @@ export class SignedEvent implements Event {
   public readonly client : NostrClient
   public readonly event  : Event
 
+  private _content   : string
+
   constructor (
     client : NostrClient,
     event  : Event | SignedEvent
@@ -16,6 +18,8 @@ export class SignedEvent implements Event {
     this.event  = (event instanceof SignedEvent)
       ? event.toJSON()
       : event
+
+    this._content = event.content
   }
 
   public get isAuthor () : boolean {
@@ -27,14 +31,13 @@ export class SignedEvent implements Event {
   }
 
   public get isEncrypted () : boolean {
-    return (
-      typeof this.event.content === 'string' &&
-      this.event.content.includes('?iv=')
-    )
+    const isString  = typeof this.event.content === 'string'
+    const hasVector = this.event.content.includes('?iv=')
+    return (isString && hasVector)
   }
 
   public get isJSON () : boolean {
-    return Text.isJSON(this.event.content as string)
+    return Text.isJSON(this.content)
   }
 
   public get id () : string {
@@ -57,10 +60,16 @@ export class SignedEvent implements Event {
     return this.event.subject
   }
 
-  public get content () : Json | string {
-    return (this.isJSON)
-      ? JSON.parse(this.event.content as string)
-      : this.event.content
+  public get rawcontent () : string {
+    return this.event.content
+  }
+
+  public get content () : string {
+    return this._content
+  }
+
+  public get json () : Json | undefined {
+    return Text.toJSON(this.content)
   }
 
   public get sig () : string {
@@ -83,25 +92,32 @@ export class SignedEvent implements Event {
       .map(t => t.slice(1))
   }
 
-  public get hashtags () : Tag[] {
-    return this.tags
-      .filter(t => t[0] === 't')
-      .map(t => t[1])
+  public get secret () : Uint8Array | undefined {
+    const label = this.getTag('s') ?? ''
+    return this.client.secrets.get(label)
   }
 
-  public getTags (tag : string) : Tag[][] {
+  public get topic () : string | undefined {
+    return this.getTag('t')
+  }
+
+  public filterTags (tag : string) : Tag[][] {
     return this.tags
       .filter(t => t[0] === tag)
       .map(t => t.slice(1))
   }
 
-  public getTag (tag : string) : Tag | undefined {
-    const tags = this.getTags(tag)
-    return (tags.length > 0) ? tags[0][0] : undefined
+  public getTag (tag : string) : string | undefined {
+    const tags = this.filterTags(tag)
+    return (tags.length > 0) ? String(tags[0][0]) : undefined
   }
 
-  public async decrypt (secret : string | Uint8Array) : Promise<string> {
-    return Cipher.decrypt(this.content as string, secret)
+  // public getHeaders() {
+  // }
+
+  public async decrypt (secretKey : string | Uint8Array) : Promise<string> {
+    this._content = await Cipher.decrypt(this.rawcontent, secretKey)
+    return this.content
   }
 
   public toJSON () : Event {

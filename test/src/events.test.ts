@@ -4,12 +4,14 @@ import { sleep } from './utils.js'
 import { NostrClient, EventChannel } from '../../src/index.js'
 
 const client = new NostrClient()
-const topic  = client.channel('testing', { 
+const topic  = client.getChannel('testing', { 
   secret : 'superisatestnet',
-  filter : { selfsub: true }
+  filter : { selfsub: true, authors: [ client.pubkey ] }
 })
 
 await client.connect('wss://nostr.zebedee.cloud')
+
+// client.on('sent', (event) => console.dir(event, { depth: null }))
 
 export function eventTests(t : Test) {
   t.test('onTest',     t => onTest(t, topic))

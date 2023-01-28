@@ -4,8 +4,8 @@ import { KeyPair }     from './class/keypair'
 import { Hex, Text, Base64 } from './lib/format'
 
 export * from './class/client'
-export * from './class/subscription'
-export * from './class/channel'
+export * from './sub/subscription'
+export * from './sub/channel'
 export * from './event/SignedEvent'
 export * from './schema/types'
 

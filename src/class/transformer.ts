@@ -12,7 +12,7 @@ type TransformReturn<T, C> = (
   err    ?: errorHandler
 ) => Promise<TransformOutput<T>>
 
-export type Middleware<T, C> = (
+type Method<T, C> = (
   input   : T,
   context : C
 ) => Promise<T | null> | T | null
@@ -27,7 +27,7 @@ export interface TransformOutput<T> {
 
 export class Transformer<T, C> {
   public readonly context : C
-  public readonly methods : Array<Middleware<T, C>>
+  public readonly methods : Array<Method<T, C>>
   public catcher ?: errorHandler
 
   constructor (context : C) {
@@ -36,12 +36,15 @@ export class Transformer<T, C> {
     this.catcher = undefined
   }
 
-  public use (...fn : Array<Middleware<T, C>>) : number {
+  public use (...fn : Array<Method<T, C>>) : number {
     return this.methods.push(...fn)
   }
 
-  public async apply (data : T) : Promise<TransformOutput<T>> {
-    return pipe(...this.methods)(data, this.context, this.catcher)
+  public async apply (
+    data    : T,
+    context : C = this.context
+  ) : Promise<TransformOutput<T>> {
+    return pipe(...this.methods)(data, context, this.catcher)
   }
 
   public catch (catcher : errorHandler) : void {
@@ -50,7 +53,7 @@ export class Transformer<T, C> {
 }
 
 export function pipe<T, C> (
-  ...fns : Array<Middleware<T, C>>
+  ...fns : Array<Method<T, C>>
 ) : TransformReturn<T, C> {
   /**
    * Transform an input by piping it through

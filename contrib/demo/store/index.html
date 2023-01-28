@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NostrStore Demo</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- <script src='https://unpkg.com/@cmdcode/nostr-utils'></script> -->
+  <script src='../../../dist/bundle.min.js'></script>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Store Demo</h1>
+      <p>Collaborate with friends on a shared data store.</br> 
+        Open this page in multiple tabs, or share it with others!</p>
+    </div>
+  </header>
+  <main>
+    <section class="connect-window">
+      <pre>Copy / paste your connection string below:</br>(format is topic@relay-url)</pre>
+      <div class="connect-prompt">
+        <input type="text" value=""></input>
+        <button class="connect-btn">connect</button>
+      </div>
+    </section>
+    <section class="container">
+      <div class="title">
+        <p>Data Store (JSON Format)</p>
+      </div>
+      <div class="content">
+        <div class="commit"><p></p></div>
+        <pre contenteditable="true">...</pre>
+        <button class="submit-btn">submit</button>
+        <button class="clear-btn">clear</button>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <section>
+      <p class="desc">This demo uses JSON formatting for simple validation of content. You could expand this demo to include any type of content, including HTML or WYSIWYG content. All data is signed and encrypted end-to-end using hashed values calculated from the shared secret.</p>
+      <p>If something breaks, please submit an issue on the github page. :-)</p>
+    </section>
+    <section>
+      <div>
+        <p>
+          <a href="https://github.com/cmdruid/nostr-utils">github-repo</a>
+          | <a href="https://www.npmjs.com/package/nostr-utils">npm-package</a>
+          <!-- | <a href="https://github.com/cmdruid/nostr-utils">donate</a> -->
+        </p>
+      </div>
+    </section>
+  </footer>
+  <script>
+    // Configure our default relay.
+    const DEFAULT_RELAY = 'nostr.zebedee.cloud'
+
+    // Configure our default nostr client.
+    const { NostrClient } = window.nostrUtils
+    const client = new NostrClient()
+
+    client.on('info', console.log)
+
+    // Configure our interactive elements.
+    const connectInput  = document.querySelector('.connect-prompt input')
+    const connectButton = document.querySelector('.connect-btn')
+    const commitWindow  = document.querySelector('.content .commit p')
+    const editorWindow  = document.querySelector('.content pre')
+    const editorSubmit  = document.querySelector('.content .submit-btn')
+    const editorClear   = document.querySelector('.content .clear-btn')
+
+    // Setup our global variable.
+    let storeCache, isValid = false
+
+    connectInput.addEventListener('keypress', async e => {
+      // For connect input, handle [ Enter ] keypress.
+      if (e.key === 'Enter') await handleConnect(e.target.value)
+    })
+
+    connectButton.addEventListener('click', async e => {
+      // For connect button, handle button click.
+      handleConnect(connectInput.value)
+    })
+
+    editorWindow.addEventListener('input', (e) => {
+      // For editor window, handle input validation. 
+      handleWindowState(e.target.textContent)
+    })
+
+    editorSubmit.addEventListener('click', e => {
+      // For editor submit button, handle button click.
+      if (!isValid) alert('Invalid JSON format!')
+      setWindowData(editorWindow.textContent)
+    })
+
+    editorClear.addEventListener('click', e => {
+      // For editor clear button, handle button click.
+      clearWindowData()
+      updateEditor()
+    })
+
+    function handleWindowState(data) {
+      // Handle the display state of the editor window.
+      if (isValidJSON(data)) {
+        editorWindow.style.backgroundColor = 'rgba(0, 128, 0, 0.1)'
+        isValid = true
+      } else {
+        editorWindow.style.backgroundColor = 'rgba(128, 0, 0, 0.1)'
+        isValid = false
+      }
+    }
+
+    async function updateEditor() {
+      // Handle an update to the editor window.
+      const store = await getStore()
+      editorWindow.textContent = (store.size > 0)
+        ? JSON.stringify(store.export(), null, 2)
+        : '{ "example": "Replace this with your own valid JSON data!" }'
+        const { updated_at, updated_by } = store.prevCommit
+      commitWindow.textContent = `Updated at ${new Date(updated_at * 1000)} by ${updated_by.slice(0, 5) }`
+      handleWindowState(editorWindow.textContent)
+    }
+
+    function getRandomAddress() {
+      const randVal = Math.floor(Math.random() * 1000)
+      return `demo-${randVal}@${DEFAULT_RELAY}`
+    }
+
+    async function handleConnect(address) {
+      // Handle a connection request to the client.
+      const isValid = isValidAddress(address)
+      const addr = (isValid) ? address : getRandomAddress()
+      // Update the connection input and local storage.
+      const prevAddr = localStorage.getItem('address')
+      if (prevAddr !== addr) storeCache = undefined
+      connectInput.value = addr
+      localStorage.setItem('address', addr)
+      await getStore()
+      if (!isValid) clearData()
+      updateEditor()
+    }
+
+    function decodeAddress(addr) {
+      let secret
+      // Check if address is encoded.
+      addr = (addr.includes('@')) ? addr : addr = atob(addr)
+      // Split address string.
+      let [ label, address ] = addr.split('@')
+     
+      if (label.includes(':')) {
+        // If secret provided, split the secret string.
+        let [ newlabel, newsecret ] = label.split(':')
+        label  = newlabel
+        secret = newsecret
+      }
+      return [ address, label, secret ]
+    }
+
+
+    async function getStore() {
+      if (storeCache === undefined) {
+        const addr = localStorage.getItem('address')
+        const [ address, label, secret ] = decodeAddress(addr)
+        storeCache = client.getStore(label, { secret })
+        storeCache.on('update', updateEditor.bind(this))
+        client.connect(address)
+        await new Promise((res) => setTimeout(res, 2000))
+      }
+      return storeCache
+    }
+
+    function isValidAddress(address) {
+      return (typeof address === 'string' && address.includes('@'))
+    }
+
+    function isValidJSON(data) {
+      // Check if the data is valid JSON.
+      try {
+        JSON.parse(data)
+        return true
+      } catch(err) { return false }
+    }
+
+    async function setWindowData(data) {
+      // Setter function for the store.
+      if (isValid) {
+        const store = await getStore()
+        return store.push(data, true)
+      }
+    }
+
+    async function clearWindowData() {
+      // Clear function for the store.
+      const store = await getStore()
+      store.clear()
+      store.destroy()
+    }
+
+    // Start the connection on page load, using localstorage.
+    handleConnect(localStorage.getItem('address'))
+  </script>
+</body>
+</html>

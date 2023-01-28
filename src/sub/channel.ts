@@ -1,14 +1,14 @@
-import { NostrClient }  from './client'
-import { EventEmitter } from './emitter'
+import { NostrClient }  from '../class/client'
+import { EventEmitter } from '../class/emitter'
 import { Subscription } from './subscription'
 import { SignedEvent }  from '../event/SignedEvent'
 import { EventSchema }  from '../schema/events'
 
 import {
-  AckEnvelope,
   EventDraft,
   Json,
-  ChannelConfig
+  ChannelConfig,
+  EventResponse
 } from '../schema/types'
 
 interface EventRecord { content : Json, event : SignedEvent }
@@ -29,8 +29,8 @@ export class EventChannel extends EventEmitter<{
     topic  : string,
     config : ChannelConfig = {}
   ) {
-    const { secret, secretKey, sharedPub }     = config
-    const { filter, template  = { tags: [] } } = config
+    const { secret, secretKey, sharedPub } = config
+    const { filter, template } = config
 
     super()
     this.topic     = topic
@@ -52,7 +52,7 @@ export class EventChannel extends EventEmitter<{
 
   private async _eventHandler (event : SignedEvent) : Promise<void> {
     const schema = EventSchema.channel
-    const [ eventName, content ] = schema.parse(event.content)
+    const [ eventName, content ] = schema.parse(event.json)
     if (!this.history.has(eventName)) {
       this.history.set(eventName, [])
     }
@@ -63,8 +63,9 @@ export class EventChannel extends EventEmitter<{
   public async send (
     eventName : string,
     payload   : Json,
-    template  : EventDraft = this.template
-  ) : Promise<AckEnvelope | undefined> {
+    template  : EventDraft = {}
+  ) : Promise<EventResponse> {
+    template = { tags: [], ...this.template }
     const content = JSON.stringify([ eventName, payload ])
     template.tags?.push([ 't', this.topic ])
     return this.client.publish({ ...template, content })

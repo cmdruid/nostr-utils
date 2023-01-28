@@ -58,7 +58,7 @@ const browserConfig = {
     {
       file      : 'dist/bundle.min.js',
       format    : 'iife',
-      name      : 'nostrJs',
+      name      : libraryName,
       plugins   : [terser()],
       sourcemap : true,
       globals: {

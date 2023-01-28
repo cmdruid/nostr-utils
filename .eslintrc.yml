@@ -35,6 +35,7 @@ rules:
   "@typescript-eslint/indent": off
   "@typescript-eslint/return-await": [ 1, "in-try-catch" ]
   "@typescript-eslint/no-base-to-string": off
+  "@typescript-eslint/naming-convention": off
   "@typescript-eslint/type-annotation-spacing":
     - error
     - before        : true

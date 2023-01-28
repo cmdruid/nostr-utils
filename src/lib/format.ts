@@ -56,8 +56,12 @@ function isJSON (string : string) : boolean {
   try { JSON.parse(string); return true } catch { return false }
 }
 
-function revive<T = Json> (string : string) : T | string {
-  try { return JSON.parse(string) } catch { return string }
+function toJSON<T = Json> (data : T | string) : T | undefined {
+  try {
+    if (data === null) return undefined
+    if (typeof data === 'object') return data
+    return JSON.parse(data as string)
+  } catch { return undefined }
 }
 
 export function getRandomBytes (size : number = 32) : Uint8Array {
@@ -73,7 +77,7 @@ export const Hex = {
 
 export const Text = {
   isJSON,
-  revive,
+  toJSON,
   encode : (str : string)     => ec.encode(str),
   decode : (raw : Uint8Array) => dc.decode(raw),
   random : (size ?: number) : string => b64encode(getRandomBytes(size))

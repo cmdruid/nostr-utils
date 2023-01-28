@@ -36,7 +36,7 @@ export interface Event {
   created_at : number
   pubkey     : string
   subject   ?: string
-  content    : Json
+  content    : string
   sig        : string
   tags       : Tag[][]
 }
@@ -47,7 +47,7 @@ export interface EventDraft {
   created_at ?: number
   pubkey     ?: string
   subject    ?: string
-  content    ?: Json
+  content    ?: string
   sig        ?: string
   tags       ?: Tag[][]
   secret     ?: string
@@ -61,10 +61,15 @@ export interface EventTemplate {
   created_at : number
   pubkey     : string
   subject   ?: string
-  content    : Json
+  content    : string
   sig       ?: string
   tags       : Tag[][]
 }
+
+export type EventResponse = [
+  error : string | undefined,
+  event : Event
+]
 
 export type EventEnvelope = [
   data : Json,
@@ -83,12 +88,22 @@ export type AckEnvelope = [
 ]
 
 export interface Filter {
-  ids     ?: string[]
-  authors ?: string[]
-  kinds   ?: number[]
-  since   ?: number
-  until   ?: number
-  limit   ?: number
-  selfsub ?: boolean
+  ids       ?: string[]
+  authors   ?: string[]
+  kinds     ?: number[]
+  since     ?: number
+  until     ?: number
+  limit     ?: number
+  selfsub   ?: boolean
+  timeout   ?: number
+  cacheSize ?: number
   [ key : string ] : Tag | Tag[] | undefined
+}
+
+export interface Profile {
+  name    ?: string
+  about   ?: string
+  picture ?: string
+  nip05   ?: string
+  [ key : string ] : string | undefined
 }
