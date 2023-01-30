@@ -86,7 +86,9 @@ export class Store extends EventEmitter<{
     client : NostrClient,
     config : StoreConfig = {}
   ) {
-    const { content, filter, secret, template = {}, topic, ...opt } = config
+    const {
+      content, filter, secret, template = {}, topic, ...opt
+    } = config
 
     super()
     this.client    = client
@@ -156,10 +158,8 @@ export class Store extends EventEmitter<{
       if (prev?.updated_at === undefined) prev = c
       if (c.updated_at > prev.updated_at) {
         prev = c
-        console.log('replaced:', c)
       }
     }
-    console.log(prev)
     return prev
   }
 
@@ -199,24 +199,13 @@ export class Store extends EventEmitter<{
     return changed
   }
 
-  async _publish (data : StoreRecord) : Promise<EventResponse> {
+  async commit (data : StoreRecord) : Promise<EventResponse> {
     const changed  = this._diff(data)
     const template = { tags: [], ...this.template }
     template.content = JSON.stringify(changed)
     this.emit('commit', template)
+    await this.client.connect()
     return this.client.publish(template)
-  }
-
-  async commit (data : StoreRecord) : Promise<EventResponse> {
-    const delay = 500, retries = 5; let count = 0
-    if (this.init) return this._publish(data)
-    return new Promise((resolve, reject) => {
-      setInterval(() => {
-        if (this.init) resolve(this._publish(data))
-        if (count > retries) reject(Error('timeout'))
-        count++
-      }, delay)
-    })
   }
 
   has (key : string) : boolean {

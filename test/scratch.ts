@@ -1,6 +1,6 @@
 // Import the client and (optional) Keypair utility.
 import { NostrClient } from '../src/index'
-import { Store }       from '../src/sub/store'
+import { Store }       from '../src/view/store'
 import { sleep }       from '../src/lib/utils'
 
 // Creating a new client is very simple.
@@ -19,11 +19,11 @@ const aStore = new Store(alice, { topic: 'test', secret: 'seekrit' })
 const bStore = new Store(bob, { topic: 'test', secret: 'seekrit' })
 
 aStore.sub.on('event', (event) => {
-  console.log('Alice heard:', event.id.slice(0,5), event.created_at, event.content, event.kind)
+  // console.log('Alice heard:', event.id.slice(0,5), event.created_at, event.content, event.kind)
 })
 
 bStore.sub.on('event', (event) => {
-  console.log('Bob heard:', event.id.slice(0,5), event.created_at, event.content, event.kind)
+  // console.log('Bob heard:', event.id.slice(0,5), event.created_at, event.content, event.kind)
 })
 
 aStore.on('ready', async (store) => {

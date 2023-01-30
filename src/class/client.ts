@@ -2,15 +2,15 @@ import WebSocket         from 'ws'
 import { Hash }          from './hash'
 import { KeyPair }       from './keypair'
 import { EventEmitter }  from './emitter'
-import { Subscription }  from '../sub/subscription'
-import { EventChannel }  from '../sub/channel'
+import { Subscription }  from '../view/subscription'
+import { EventChannel }  from '../view/channel'
 import { Secrets }       from './secrets'
 import { Transformer }   from './transformer'
 import { validateEvent } from '../middleware/validate'
 import { Hex }           from '../lib/format'
 // import { ProfileStore }  from '../store/ProfileStore'
 import { SignedEvent }   from '../event/SignedEvent'
-import { Store, StoreConfig } from '../sub/store'
+import { Store, StoreConfig } from '../view/store'
 
 import {
   ClientConfig,
@@ -24,7 +24,8 @@ import {
   ChannelConfig,
   EventResponse
 } from '../schema/types'
-import { ProfileStore } from '../store/ProfileStore'
+import { ProfileStore } from '../event/ProfileEvent'
+import { Query } from '../view/query'
 
 type Middleware = Transformer<SignedEvent, NostrClient>
 type Senderware = Transformer<EventDraft, NostrClient>
@@ -169,7 +170,8 @@ export class NostrClient extends EventEmitter <{
       }
       if (type === 'NOTICE') {
         // If we get a message from the relay, emit it directly.
-        this.emit('notice', message.slice(1)); return
+        const msg = [ '[ INFO ] Notice: ', message.slice(1) ]
+        this.emit('info', ...msg); return
       }
       // We shouldn't get to this point.
       throw TypeError(`Invalid type from relay: ${type}`)
@@ -233,23 +235,13 @@ export class NostrClient extends EventEmitter <{
     filter  : Filter,
     sorter ?: Sorter<SignedEvent>
   ) : Promise<SignedEvent[]> {
-    /**
-     *  Create a one-time subscription that collects all
-     *  events and returns then in an array. This process
-     *  can be used to query data from a relay.
-     */
-    const selection : SignedEvent[] = []
-    const sub = new Subscription(this, filter)
-    sub.on('eose', () => { sub.cancel() })
-    sub.on('event', (event) => { selection.push(event) })
-    await sub.update()
-    if (sorter !== undefined) selection.sort(sorter)
-    return selection
+    const query = new Query(this, filter)
+    return query.all(sorter)
   }
 
-  public async queryOne (filter  : Filter) : Promise<SignedEvent | undefined> {
-    const [ event ] = await this.query({ ...filter, limit: 1 })
-    return event
+  public async fetch (filter  : Filter) : Promise<SignedEvent | undefined> {
+    const query = new Query(this, filter)
+    return query.latest()
   }
 
   public cancel (subId : string) : void {
@@ -257,6 +249,7 @@ export class NostrClient extends EventEmitter <{
     const message = JSON.stringify([ 'CLOSE', subId ])
     this.socket?.send(message)
     this.clearEvent(subId)
+    this.emit('info', '[ INFO ] Closing subscription:', subId)
   }
 
   public async publish (

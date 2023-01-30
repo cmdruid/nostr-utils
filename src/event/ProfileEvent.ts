@@ -1,6 +1,6 @@
 import { NostrClient } from '../class/client'
 import { Profile }     from '../schema/types'
-import { Store }       from '../sub/store'
+import { Store }       from '../view/store'
 
 export class ProfileStore extends Store {
   constructor (
@@ -9,7 +9,7 @@ export class ProfileStore extends Store {
   ) {
     super(client, {
       content  : profile,
-      filter   : { timeout: 10000, kind: 0, authors: [ client.pubkey ] },
+      filter   : { kinds: [ 0 ], authors: [ client.pubkey ] },
       template : { kind: 0 }
     })
   }

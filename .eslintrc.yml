@@ -13,13 +13,16 @@ parserOptions:
   sourceType        : module
   project:
    - tsconfig.json
+   - contrib/demo/board/tsconfig.json
+   - contrib/demo/board/tsconfig.node.json
 
 rules:
-  semi              : [ 2, never ]
-  one-var           : off
-  return-await      : off
-  indent            : off
-  no-multi-spaces   : off
+  semi               : [ 2, never ]
+  one-var            : off
+  return-await       : off
+  indent             : off
+  no-multi-spaces    : off
+  operator-linebreak : off
   array-bracket-spacing:
     - error
     - always

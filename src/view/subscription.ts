@@ -79,8 +79,11 @@ export class Subscription extends EventEmitter<{
     return filterEvents(this.cache, filter)
   }
 
-  public async update (filter : Filter = this.filter) : Promise<void> {
+  public async update (
+    filter : Filter = this.filter
+  ) : Promise<Subscription> {
     /** send a subscription request to the relay. */
+    await this.client.connect()
     return new Promise((resolve, reject) => {
       // Configure our message payload and timeout.
       const message = JSON.stringify([ 'REQ', this.id, filter ])
@@ -93,7 +96,7 @@ export class Subscription extends EventEmitter<{
         this.subscribed = true
         this.client.emit('info', '[ INFO ] Subscribed with:', this.filter)
         this.emit('ready', this)
-        resolve()
+        resolve(this)
       }, this.timeout)
       // Send the subscription request to the relay.
       void this.client.send(message)
