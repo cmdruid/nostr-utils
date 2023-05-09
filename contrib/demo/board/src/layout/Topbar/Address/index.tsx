@@ -1,17 +1,31 @@
-import { useNostrContext } from '@/context/NostrContext'
+import { useClientContext } from '@/context/ClientContext'
+import { useBoardContext } from '@/context/BoardContext'
 import { useStorage }      from '@/hooks/useStorage'
-import { ReactElement }    from 'react'
+import { ReactElement, useEffect }    from 'react'
 import { AiOutlineSearch } from 'react-icons/ai'
 import styles              from './styles.module.css'
 
 export default function AddressBar () : ReactElement {
   const [ address, setAddress ] = useStorage('address', '')
 
-  const client = useNostrContext()
+  const {
+    store    : clientStore,
+    dispatch : clientDispatch
+  } = useClientContext()
+  const { dispatch: boardDispatch }  = useBoardContext()
 
   function handleSubmit () : void {
-    void client.connect(address)
+    const [ topic, relay ] = address.split('@')
+    clientDispatch({ type: 'address', payload: relay })
+    boardDispatch({ type: 'label', payload: topic })
   }
+
+  useEffect(() => {
+    if (
+      address !== undefined &&
+      clientStore.status === 'INIT'
+    ) { handleSubmit() }
+  }, [ address, clientStore ])
 
   return (
     <div className={styles.container}>
@@ -23,7 +37,7 @@ export default function AddressBar () : ReactElement {
       />
       <button
         className={styles.button}
-        onClick={() => handleSubmit }
+        onClick={handleSubmit}
       >
         <AiOutlineSearch
           className={styles.icon}

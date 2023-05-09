@@ -15,7 +15,10 @@ sub3.on('event', (event) => console.log('sub3:', event.id))
 sub4.on('event', (event) => console.log('sub4:', event.id))
 
 client.on('info', console.log)
+/// client.on('debug', console.log)
 
-await client.connect('wss://nostr.zebedee.cloud')
+await client.connect('wss://relay.nostrich.de')
 
-client.close()
+// client.close()
+
+client.publish({ content, tags: [ ]})

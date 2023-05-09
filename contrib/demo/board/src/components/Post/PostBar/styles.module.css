@@ -1,0 +1,17 @@
+.container {
+  padding: 0;
+}
+
+span {
+  color: maroon;
+  font-size: 0.8em;
+}
+
+.pubId {
+  font-size: 0.6rem;
+  padding: 0 5px;
+  height: 1.1em;
+  line-height: 1.1em;
+  color: white;
+  border-radius: 6px;
+}

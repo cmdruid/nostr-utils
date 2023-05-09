@@ -1,0 +1,27 @@
+.container {
+  display: block;
+  width  : 100%;
+  margin : auto;
+  text-align: left;
+  word-wrap: break-word;
+}
+
+.post {
+  width: auto;
+  margin-right: auto;
+  background-color: transparent;
+}
+
+.comment {
+  background-color: #f0e0d6;
+  border: 1px solid #d9bfb7;
+}
+
+.imageWrap {
+  float: left;
+  width: 150px;
+}
+
+.content {
+  overflow-wrap: break-word;
+}

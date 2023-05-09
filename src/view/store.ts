@@ -8,7 +8,7 @@
 
 import { SignedEvent } from '../event/SignedEvent'
 import { PrimeSchema } from '../schema/prime'
-import { Event, EventDraft, EventResponse, Filter, Json } from '../schema/types'
+import { EventDraft, EventResponse, Filter, Json } from '../schema/types'
 import { NostrClient } from '../class/client'
 import { EventEmitter } from '../class/emitter'
 import { Subscription } from './subscription'
@@ -23,32 +23,13 @@ interface CommitRecord {
   commit_id  : string
 }
 
-// const now = () : number => Math.floor(Date.now() / 1000)
-
-// function encode (_key : string, value : any) : any {
-//   // Convert non-standard javascript objects to json.
-//   if (value instanceof Map)  return { type: 'Map', value: [ ...value ] }
-//   if (value instanceof Date) return { type: 'Date', value }
-//   return value
-// }
-
-// function decode (_key : string, value : any) : any {
-//   // Convert non-standard json objects to javascript.
-//   if (typeof value === 'object' && value !== null) {
-//     if (value.type === 'Map') return new Map(value.value)
-//     if (value.type === 'Date') return new Date(value.value)
-//   }
-//   return value
-// }
-
 export interface StoreConfig {
   cacheSize ?: number
   content   ?: StoreRecord
   delay     ?: number
   filter    ?: Filter
+  label     ?: string
   retries   ?: number
-  secret    ?: string
-  topic     ?: string
   template  ?: EventDraft
 }
 
@@ -59,9 +40,9 @@ export interface StoreOptions {
 }
 
 export class Store extends EventEmitter<{
-  'pull'   : [ Event[] ]
   'commit' : [ EventDraft ]
   'ready'  : [ Store ]
+  'update' : [ Store ]
   [ k : string ] : any[]
 }> {
   public readonly client  : NostrClient
@@ -74,34 +55,25 @@ export class Store extends EventEmitter<{
   public template    : EventDraft
   public updatedAt   : number
 
-  static async create (
-    client  : NostrClient,
-    content : StoreRecord,
-    config  : StoreConfig = {}
-  ) : Promise<Store> {
-    return client.getStore({ content, ...config })
+  static defaults = {
+    kind: 19000
   }
 
   constructor (
     client : NostrClient,
     config : StoreConfig = {}
   ) {
-    const {
-      content, filter, secret, template = {}, topic, ...opt
-    } = config
+    const { content, filter, template = {}, label, ...opt } = config
 
     super()
     this.client    = client
     this.data      = new Map()
     this.commits   = new Map()
-
     this.init      = false
     this.updatedAt = 0
 
     this.template  = {
-      kind : 19000,
-      secret,
-      tags : [],
+      kind: Store.defaults.kind,
       ...template
     }
 
@@ -112,17 +84,17 @@ export class Store extends EventEmitter<{
       ...opt
     }
 
-    this.sub = client.subscribe({
+    this.sub = new Subscription(this.client, {
       selfsub   : true,
-      kinds     : [ 19000 ],
+      kinds     : [ Store.defaults.kind ],
       limit     : this.options.cacheSize,
       cacheSize : this.options.cacheSize,
        ...filter
     })
 
-    if (topic !== undefined) {
-      this.filter['#d'] = [ topic ]
-      this.template.tags?.push([ 'd', topic ])
+    if (label !== undefined) {
+      this.filter['#d'] = [ label ]
+      this.template.tags?.push([ 'd', label ])
     }
 
     this.client.on('ready', () => {
@@ -172,11 +144,15 @@ export class Store extends EventEmitter<{
       for (const key in records) {
         // Check the commit timestamp for a given key.
         const { updated_at } = this.commits.get(key) ?? {}
-        if (updated_at === undefined || updated_at < event.created_at) {
+        if (
+          updated_at === undefined ||
+          updated_at < event.created_at
+        ) {
           // Update the store value and commit history.
           if (records[key] !== null) {
             this.data.set(key, records[key])
           } else { this.data.delete(key) }
+
           this.commits.set(key, {
             updated_at : event.created_at,
             updated_by : event.pubkey,
@@ -204,7 +180,6 @@ export class Store extends EventEmitter<{
     const template = { tags: [], ...this.template }
     template.content = JSON.stringify(changed)
     this.emit('commit', template)
-    await this.client.connect()
     return this.client.publish(template)
   }
 
@@ -239,12 +214,12 @@ export class Store extends EventEmitter<{
 
   async push (
     data : StoreRecord,
-    overwrite = false
+    prune = false
   ) : Promise<EventResponse> {
     if (typeof data === 'string') {
       data = JSON.parse(data)
     }
-    if (overwrite) {
+    if (prune) {
       for (const key of this.data.keys()) {
         if (data[key] === undefined) data[key] = null
       }
@@ -266,8 +241,8 @@ export class Store extends EventEmitter<{
     return this.push({}, true)
   }
 
-  destroy () : void {
-    const events = this.sub.fetch(this.filter)
+  async destroy () : Promise<void> {
+    const events = await this.sub.fetch(this.filter)
     for (const event of events) {
       if (event.pubkey === this.client.pubkey) {
         void this.client.publish({ kind: 5, tags: [ [ 'e', event.id ] ] })
@@ -299,3 +274,19 @@ export class Store extends EventEmitter<{
     return this.entries()
   }
 }
+
+// function encode (_key : string, value : any) : any {
+//   // Convert non-standard javascript objects to json.
+//   if (value instanceof Map)  return { type: 'Map', value: [ ...value ] }
+//   if (value instanceof Date) return { type: 'Date', value }
+//   return value
+// }
+
+// function decode (_key : string, value : any) : any {
+//   // Convert non-standard json objects to javascript.
+//   if (typeof value === 'object' && value !== null) {
+//     if (value.type === 'Map') return new Map(value.value)
+//     if (value.type === 'Date') return new Date(value.value)
+//   }
+//   return value
+// }

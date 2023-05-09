@@ -4,7 +4,7 @@ import { PrimeSchema } from './prime'
 import { TagSchema }   from './tags'
 
 const { hex, hash, json, signature, timestamp } = PrimeSchema
-const { tagsArray, tagsFilter } = TagSchema
+const { tags, tagsArray } = TagSchema
 
 const kind = z.number().min(0).max(30000)
 
@@ -28,7 +28,7 @@ const filter = z.object({
   since   : timestamp,
   until   : timestamp,
   limit   : z.number()
-}).partial().catchall(tagsFilter)
+}).partial().catchall(tags)
 
 const channel = z.tuple([
   z.string(),

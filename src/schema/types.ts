@@ -1,6 +1,5 @@
 import { SignedEvent } from '../event/SignedEvent'
 
-export type Tag     = string  | number | boolean
 export type Literal = string  | number | boolean | null
 export type Json    = Literal | Json[] | { [key : string] : Json }
 
@@ -29,6 +28,8 @@ export interface ChannelConfig {
   secretKey ?: string | Uint8Array
   sharedPub ?: string | Uint8Array
 }
+
+export type Tag = string | number | boolean
 
 export interface Event {
   id         : string
@@ -68,7 +69,7 @@ export interface EventTemplate {
 
 export type EventResponse = [
   error : string | undefined,
-  event : Event
+  event : Event  | EventDraft
 ]
 
 export type EventEnvelope = [

@@ -1,22 +1,29 @@
+import { useBoardContext } from '@/context/BoardContext'
 import { ReactElement } from 'react'
-import { useNostrContext } from '@/context/NostrContext'
+import { Post } from '../Post'
 
-export function Board () : ReactElement {
-  const client = useNostrContext()
-  const boardTopic = window.location
+import { Container, SimpleGrid } from '@mantine/core'
 
-  const feed = client.query({
-    kinds  : [ 4000 ],
-    ['#b'] : [ boardTopic ]
-  })
+import { Banner } from './Banner'
+
+import styles from './styles.module.css'
+export function BoardView () : ReactElement {
+  const { store } = useBoardContext()
+
+  const root = 'cc8973c65d229cb782053674f4412dbe6a3862a53b21a8f35de6c24d408d0253'
 
   return (
-    <div className="container">
-      <TopicForm></TopicForm>
-      <div className='board-stack'>
-        {feed}
-        <Topic></Topic>
-      </div>
-    </div>
+    <Container className={styles.container}>
+      <Banner />
+      <SimpleGrid cols={1} spacing="xs" verticalSpacing={4}>
+        {
+          store.posts.map(event => {
+            const isRoot = event.id === root
+            return <Post key={event.id} event={event} isRoot={isRoot}/>
+          })
+        }
+      </SimpleGrid>
+      <button onClick={() => { console.log(store) }}>Log store</button>
+    </Container>
   )
 }

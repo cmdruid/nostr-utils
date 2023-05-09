@@ -87,3 +87,7 @@ export const Base64 = {
   encode : b64encode,
   decode : b64decode
 }
+
+export const Keys = {
+  
+}

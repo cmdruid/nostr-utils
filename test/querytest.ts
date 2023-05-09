@@ -1,11 +1,12 @@
-import { NostrClient } from '../src/index'
+import { NostrClient, Query } from '../src/index'
 
 const client = new NostrClient()
 
 client.on('info', console.log)
+// client.on('debug', console.log)
 
-await client.connect('wss://nostr.zebedee.cloud')
+const query = new Query(client, { kinds : [ 1 ], limit: 10 })
 
-console.log(await client.queryOne({ kinds : [ 1 ] }))
+await client.connect('wss://relay.nostrich.de')
 
-client.close()
+console.log(await query.all().then(e => e.length))

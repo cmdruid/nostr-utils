@@ -1,46 +1,43 @@
 import { NostrClient }    from '../class/client'
 import { SignedEvent }    from '../event/SignedEvent'
 import { Filter, Sorter } from '../schema/types'
+import { Subscription }   from './subscription'
 
 export class Query {
   public readonly client : NostrClient
-  public filter : Filter
+  public readonly sub    : Subscription
 
   constructor (
     client : NostrClient,
     filter : Filter
   ) {
+    const { cacheSize = 100 } = filter
     this.client = client
-    this.filter = filter
+    this.sub = new Subscription(client, { ...filter, cacheSize })
   }
 
-  async _sub (filter = this.filter) : Promise<SignedEvent[]> {
-    const selection : SignedEvent[] = []
-    const sub = this.client.subscribe(filter)
-    sub.on('event', (event) => {
-      console.log(event.id)
-      selection.push(event)
-    })
-    return new Promise(resolve => {
-      const cancel  = () : void => { sub.cancel(); resolve(selection) }
-      const timeout = this.client.options.timeout
-      const timer   = setTimeout(cancel, timeout)
-      sub.on('eose', () => {
-        clearTimeout(timer)
-        cancel()
-      })
-      void sub.update()
-    })
+  get filter () : Filter {
+    return this.sub.filter
+  }
+
+  set filter (filter : Filter) {
+    this.sub.filter = filter
+  }
+
+  async fetch (
+    filter ?: Filter
+  ) : Promise<SignedEvent[]> {
+    return this.sub.fetch(filter)
   }
 
   async latest () : Promise<SignedEvent> {
     return this
-      ._sub({ ...this.filter, limit: 1 })
+      .fetch({ ...this.filter, limit: 1 })
       .then(subs => subs[0])
   }
 
   async all (sorter ?: Sorter<SignedEvent>) : Promise<SignedEvent[]> {
-    const subs = await this._sub(this.filter)
+    const subs = await this.fetch()
     if (sorter !== undefined) subs.sort(sorter)
     return subs
   }

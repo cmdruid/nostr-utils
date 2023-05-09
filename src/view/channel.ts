@@ -13,12 +13,12 @@ import {
 
 interface EventRecord { content : Json, event : SignedEvent }
 
-export class EventChannel extends EventEmitter<{
-  'ready' : [ EventChannel ]
+export class Channel extends EventEmitter<{
+  'ready' : [ Channel ]
   [ k : string ] : any[]
 }> {
   public readonly client  : NostrClient
-  public readonly topic   : string
+  public readonly label   : string
   public readonly sub     : Subscription
   public readonly history : Map<string, EventRecord[]>
 
@@ -26,22 +26,23 @@ export class EventChannel extends EventEmitter<{
 
   constructor (
     client : NostrClient,
-    topic  : string,
+    label  : string,
     config : ChannelConfig = {}
   ) {
     const { secret, secretKey, sharedPub } = config
     const { filter, template } = config
 
     super()
-    this.topic     = topic
+    this.label     = label
     this.client    = client
     this.sub       = new Subscription(this.client, filter)
     this.template  = { ...template, secret, secretKey, sharedPub }
     this.history   = new Map()
 
-    this.sub._updateHook = (sub) => {
-      sub.filter['#t'] = [ this.topic ]
-    }
+    this.sub.filterware.use((filter) => {
+      filter['#l'] = [ this.label ]
+      return filter
+    })
 
     this.sub.on('ready', () => { this.emit('ready', this) })
 
@@ -67,7 +68,7 @@ export class EventChannel extends EventEmitter<{
   ) : Promise<EventResponse> {
     template = { tags: [], ...this.template }
     const content = JSON.stringify([ eventName, payload ])
-    template.tags?.push([ 't', this.topic ])
+    template.tags?.push([ 'l', this.label ])
     return this.client.publish({ ...template, content })
   }
 }

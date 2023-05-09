@@ -3,7 +3,7 @@
   display: inline-block;
 }
 
-.button {
+.menuButton {
   padding: 0;
   width: 50px;
   border: 0;
@@ -17,12 +17,28 @@
 .dropdown {
   position: absolute;
   top: 3.5rem;
-  right: 100px;
-  width: 100px;
+  right: -1rem;
+  width: 200px;
+  padding: 0.5rem;
   z-index: 2;
   color: black;
   border: 1px solid rgba(0, 0, 0, 0.04);
   box-shadow: 0 16px 24px 2px rgba(0, 0, 0, 0.14);
+}
+
+.input {
+  border-radius: 5px 0px 0px 5px;
+  height  : 1.5rem;
+  padding : 0.5rem;
+  width: 175px;
+}
+
+.input:placeholder-shown {
+  font-style: italic; 
+}
+
+.submitButton {
+  height: 2.5rem;
 }
 
 .show {

@@ -1,6 +1,11 @@
-import { getSharedSecret, schnorr } from '@noble/secp256k1'
+import {
+  getPublicKey,
+  getSharedSecret,
+  schnorr
+} from '@noble/secp256k1'
+
 import { Hash }    from './hash'
-import { Hex }     from '../lib/format'
+import { Hex, Text }     from '../lib/format'
 
 async function sign (
   message    : string | Uint8Array,
@@ -35,45 +40,58 @@ function getSharedKey (
 export class KeyPair {
   private readonly _privateKey : Uint8Array
 
-  public static random () : KeyPair {
+  static random () : KeyPair {
     return new KeyPair(Hex.random(32))
   }
 
-  public static async fromSecret (
+  static async fromSecret (
     string : string
   ) : Promise<KeyPair> {
     const seed = await Hash.from(string).raw
     return new KeyPair(seed)
   }
 
-  public static sign   = sign
-  public static verify = verify
+  static sign   = sign
+
+  static verify = verify
+
+  static getPub = (
+    prvkey : string | Uint8Array
+  ) : string => {
+    return Hex.encode(getPublicKey(prvkey, true))
+  }
 
   constructor (bytes : string | Uint8Array) {
     this._privateKey = Hex.normalize(bytes)
   }
 
-  public get prvkey () : string {
+  get prvkey () : string {
     return Hex.encode(this._privateKey)
   }
 
-  public get pubraw () : Uint8Array {
+  get pubraw () : Uint8Array {
     return schnorr.getPublicKey(this._privateKey)
   }
 
-  public get pubkey () : string {
+  get pubkey () : string {
     return Hex.encode(this.pubraw)
   }
 
-  public async sign (message : string) : Promise<string> {
+  async sign (message : string) : Promise<string> {
     return sign(message, this._privateKey)
   }
 
-  public async verify (
+  async verify (
     message   : string,
     signature : string | Uint8Array
   ) : Promise<boolean> {
     return verify(signature, message, this.pubraw)
+  }
+
+  async derive (key : string) : Promise<KeyPair> {
+    const buffer = Uint8Array.of(...this._privateKey, ...Text.encode(key))
+    const newkey = await new Hash(buffer).raw
+    return new KeyPair(newkey)
   }
 
   public getSharedKey (pubkey : string | Uint8Array) : Uint8Array {

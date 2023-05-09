@@ -1,16 +1,13 @@
-import WebSocket         from 'ws'
 import { Hash }          from './hash'
 import { KeyPair }       from './keypair'
 import { EventEmitter }  from './emitter'
-import { Subscription }  from '../view/subscription'
-import { EventChannel }  from '../view/channel'
+import { Query }         from '../view/query'
 import { Secrets }       from './secrets'
 import { Transformer }   from './transformer'
 import { validateEvent } from '../middleware/validate'
 import { Hex }           from '../lib/format'
 // import { ProfileStore }  from '../store/ProfileStore'
 import { SignedEvent }   from '../event/SignedEvent'
-import { Store, StoreConfig } from '../view/store'
 
 import {
   ClientConfig,
@@ -21,14 +18,19 @@ import {
   ClientDefaults,
   Tag,
   Sorter,
-  ChannelConfig,
   EventResponse
 } from '../schema/types'
-import { ProfileStore } from '../event/ProfileEvent'
-import { Query } from '../view/query'
+
+import { KeyRing } from './keyring'
+
+// import { ProfileStore } from '../event/ProfileEvent'
 
 type Middleware = Transformer<SignedEvent, NostrClient>
 type Senderware = Transformer<EventDraft, NostrClient>
+
+const Socket = (globalThis.WebSocket !== undefined)
+  ? globalThis.WebSocket
+  : import('ws')
 
 export class NostrClient extends EventEmitter <{
   // Type mapping for our client event emitter.
@@ -40,17 +42,14 @@ export class NostrClient extends EventEmitter <{
   [k : string ] : any
 }> {
   public readonly id         : string
-  // public readonly profile    : ProfileStore
   public readonly middleware : Middleware
   public readonly senderware : Senderware
   public readonly secrets    : Secrets
 
-  public keypair  : KeyPair
   public address ?: string
   public socket  ?: WebSocket
   public filter   : Filter
   public options  : ClientDefaults
-  public profile  : ProfileStore
   public tags     : Tag[][]
   public ready    : boolean
 
@@ -62,16 +61,15 @@ export class NostrClient extends EventEmitter <{
   }
 
   constructor (config : ClientConfig = {}) {
-    const { privkey = Hex.random(32), ...rest } = config
+    const { privkey, ...rest } = config
     super()
     this.id         = Hex.random(16)
     this.secrets    = new Secrets(this)
     this.middleware = new Transformer(this as NostrClient)
     this.senderware = new Transformer(this as NostrClient)
 
-    this.keypair    = new KeyPair(privkey)
+    this.provider   = new KeyRing(privkey)
     this.options    = { ...NostrClient.defaults, ...rest }
-    this.profile    = new ProfileStore(this)
     this.ready      = false
     this.tags       = this.options.tags
 
@@ -100,19 +98,7 @@ export class NostrClient extends EventEmitter <{
     )
   }
 
-  get prvkey () : string {
-    return this.keypair.prvkey
-  }
-
-  set prvkey (key : string | Uint8Array) {
-    this.keypair = new KeyPair(key)
-  }
-
-  get pubkey () : string {
-    return this.keypair.pubkey
-  }
-
-  private _openHandler (_event : WebSocket.Event) : void {
+  private _openHandler () : void {
     /** Handles the websocket open event. */
     this.ready = true
     this.emit('info', `[ INFO ] Connected to: ${String(this.address)}`)
@@ -120,7 +106,7 @@ export class NostrClient extends EventEmitter <{
   }
 
   private async _messageHandler (
-    { data } : WebSocket.MessageEvent
+    { data } : MessageEvent
   ) : Promise<void> {
      /** Handles all websocket message events. */
     try {
@@ -130,7 +116,7 @@ export class NostrClient extends EventEmitter <{
         data = data.toString('utf8')
       }
 
-      this.emit('debug', `[ DEBUG ] Socket received: ${data}`)
+      this.emit('debug', '[ DEBUG ] Socket received:', data)
 
       const message = JSON.parse(data)
       const type    = String(message[0])
@@ -150,7 +136,7 @@ export class NostrClient extends EventEmitter <{
             // If event message, process the raw event.
             const event = new SignedEvent(this, message[2])
             // Run the event through our middle-ware.
-            const { ok, data } = await this.middleware.apply(event)
+            const [ ok, data ] = await this.middleware.apply(event)
             // If data is ok, emit to the subId topic.
             if (ok) {
               this.emit(subId, 'event', data)
@@ -188,17 +174,17 @@ export class NostrClient extends EventEmitter <{
     if (address !== undefined) {
       // If an address is provided, create a new socket with the address.
       this.ready   = false
-      this.address = (address.includes('://')) ? address : 'wss://' + address
-      this.socket  = new WebSocket(this.address)
+      this.address = (address.includes('://')) ? address.split('://')[1] : address
+      this.socket  = new Socket('wss://' + this.address) as WebSocket
 
       this.socket.addEventListener(
         /* Listener for the websocket open event. */
-        'open', (event : WebSocket.Event) => { this._openHandler(event) }
+        'open', () => { this._openHandler() }
       )
 
       this.socket.addEventListener(
         /* Listener for the websocket message event. */
-        'message', (event : WebSocket.MessageEvent) => { void this._messageHandler(event) }
+        'message', (event : MessageEvent) => { void this._messageHandler(event) }
       )
     }
 
@@ -217,18 +203,6 @@ export class NostrClient extends EventEmitter <{
       // If the connection fails to resolve in time, throw rejection.
       setTimeout(() => { reject(Error(`Connection to ${address} timed out!`)) }, timeout)
     })
-  }
-
-  public subscribe (filter ?: Filter) : Subscription {
-    return new Subscription(this, filter)
-  }
-
-  public getChannel (topic : string, config ?: ChannelConfig) : EventChannel {
-    return new EventChannel(this, topic, config)
-  }
-
-  public getStore (config ?: StoreConfig) : Store {
-    return new Store(this, config)
   }
 
   public async query (
@@ -257,22 +231,18 @@ export class NostrClient extends EventEmitter <{
   ) : Promise<EventResponse> {
     /** Publish an event message to the relay. */
 
-    const { ok, data } = await this.senderware.apply(draft)
+    const [ ok, data ] = await this.senderware.apply(draft)
 
     if (!ok) throw TypeError('Failed to publish event!')
-
-    if (typeof data.content !== 'string') {
-      data.content = JSON.stringify(data.content)
-    }
 
     const signedEvent = await this.sign({
       // We are constructing a template of the event
       // that is needed for hashing and signing.
-      content    : data.content,
+      content    : JSON.stringify(data.content),
       created_at : Math.floor(Date.now() / 1000),
       kind       : data.kind ?? this.options.kind,
       tags       : [ ...this.tags, ...data.tags ?? [] ],
-      pubkey     : this.pubkey
+      pubkey     : draft.pubkey ?? this.pubkey
     })
 
     return new Promise((resolve) => {
@@ -288,11 +258,13 @@ export class NostrClient extends EventEmitter <{
       }, timeout)
       void this.send(JSON.stringify(message))
       this.emit('sent', signedEvent)
+      this.emit('info', '[ INFO ] Published event:', signedEvent)
     })
-}
+  }
 
   public async sign (
-    event : EventTemplate
+    event   : EventTemplate,
+    prvkey ?: string | Uint8Array
   ) : Promise<Event> {
     /**
      * Produce a hashed digest of the event data,
@@ -309,10 +281,11 @@ export class NostrClient extends EventEmitter <{
 
     // Append event ID and signature
     const id  = await Hash.from(preimage).hex
+    const prv = prvkey ?? this.keypair
     const sig = await this.keypair.sign(id)
 
     // Verify that the signature is valid.
-    if (!await this.keypair.verify(id, sig)) {
+    if (!await this.provider.verify(id, sig)) {
       throw TypeError('Event failed verification!')
     }
     return { ...event, id, sig }

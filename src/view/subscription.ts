@@ -1,110 +1,205 @@
 import { NostrClient }   from '../class/client'
 import { EventEmitter }  from '../class/emitter'
+import { EventFilter }   from '../class/filter'
+import { Transformer } from '../class/transformer'
 import { SignedEvent }   from '../event/SignedEvent'
 import { Hex }           from '../lib/format'
-import { Event, Filter } from '../schema/types'
-import { filterEvents }  from '../lib/filter'
+import { Filter }        from '../schema/types'
 
-type UpdateHook = (sub : Subscription) => void | Promise<void>
+type SubStatus  = 'NEW' | 'ACTIVE' | 'LOADING' | 'TIMEOUT' | 'CLOSED'
+type Filterware = Transformer<Filter, Subscription>
+
+export interface SubOptions {
+  cacheSize : number
+  selfsub   : boolean
+  timeout   : number
+}
 
 export class Subscription extends EventEmitter<{
   'ready'  : [ Subscription ]
+  'eose'   : [ Subscription ]
   'event'  : [ SignedEvent  ]
   [ k : string ] : any[]
 }> {
-  private readonly _cache : Set<Event>
+  private readonly _cache    : Set<SignedEvent>
 
-  public readonly client  : NostrClient
-  public readonly id      : string
+  public readonly client     : NostrClient
+  public readonly id         : string
+  public readonly opt        : SubOptions
+  public readonly filterware : Filterware
 
-  public cacheSize   : number
-  public filter      : Filter
-  public selfsub     : boolean
-  public subscribed  : boolean
-  public timeout     : number
-  public _updateHook : UpdateHook
+  public _filter  : Filter
+  public promise ?: Promise<void>
+  public status   : SubStatus
 
   constructor (
     client : NostrClient,
     filter : Filter = {}
   ) {
     const {
-      cacheSize = 0,
+      /* Here we parse out any non-conventional
+         settings from the filter object.
+      */
+      cacheSize = 100,
       selfsub   = false,
       timeout   = client.options.timeout,
       ...rest
     } = filter
 
     super()
-    this.id          = Hex.random(16)
-    this.client      = client
     this._cache      = new Set()
-    this.cacheSize   = cacheSize
-    this.filter      = rest
-    this.selfsub     = selfsub
-    this.subscribed  = false
-    this.timeout     = timeout
-    this._updateHook = () => {}
+    this.client      = client
+    this.filterware  = new Transformer(this as Subscription)
+    this.id          = Hex.random(16)
+    this.opt         = { cacheSize, selfsub, timeout }
+    this._filter     = rest
+    this.status      = 'NEW'
 
-    this.client.on(this.id, this._eventHandler.bind(this))
+    /* When an event is delivered to this subId,
+     * we forward it to our event handler.
+     */
+    this.client.on(this.id, (type : string, event : SignedEvent) => {
+      if (type === 'event') this._eventHandler(event)
+      if (type === 'eose')  this.emit('eose', this)
+    })
 
-    this.client.on('ready', async () => {
-      await this._updateHook(this)
-      void this.update()
+    /* When the client emits a ready event,
+     * we should update our subscription.
+     */
+    this.client.on('ready', () => {
+      if (this.status === 'NEW') {
+        void this.update()
+      }
+    })
+
+    this.filterware.catch((...err) => {
+      this.client.emit('error', `[ ERROR ] ${this.slug} Subscription failed:`, ...err)
     })
   }
 
-  get cache () : Event[] {
+  get slug () : string {
+    return this.id.slice(0, 5)
+  }
+
+  get isActive () : boolean {
+    return this.status === 'ACTIVE'
+  }
+
+  get isLoading () : boolean {
+    return this.status === 'LOADING'
+  }
+
+  get isClosed () : boolean {
+    return this.status === 'CLOSED'
+  }
+
+  get cache () : SignedEvent[] {
+    /* Dumps the current event cache as an array. */
     return [ ...this._cache.values() ]
   }
 
-  private _eventHandler (
-    type : string, ...args : any[]
-  ) : void {
-    /** Handle incoming events from the client emitter. */
-    if (type === 'event' && args[0] instanceof SignedEvent) {
-      const event = args[0]
-      if (!this.selfsub && event.isAuthor) { return }
-      if (this.cacheSize > 0) {
-        this._cache.add(event.toJSON())
-        if (this._cache.size > this.cacheSize) {
-          this._cache.delete(this.cache[0])
-        }
+  get filter () : Filter {
+    return this._filter
+  }
+
+  set filter (filter : Filter) {
+    const older = this.filter.toString()
+    const newer = filter.toString()
+    if (older !== newer) {
+      this.status = 'NEW'
+    }
+    this._filter = filter
+  }
+
+  _eventHandler (event : SignedEvent) : void {
+    /** Handles incoming events delivered from the client. */
+    if (!this.opt.selfsub && event.isAuthor) {
+      // When selfsub is disabled,
+      // discard self-published events.
+      return
+    }
+    if (!EventFilter.check([ event ], this.filter)) {
+      // If an event fails the filter check, discard event.
+      // console.log('filtered:', event)
+      return
+    }
+    if (this.opt.cacheSize > 0) {
+      // If caching is enabled, add event to cache.
+      this._cache.add(event)
+      if (this._cache.size > this.opt.cacheSize) {
+        // Prune cache once limit is reached.
+        this._cache.delete(this.cache[0])
       }
     }
-    this.emit(type, ...args)
+    // Finally, broadcast the event.
+    console.log(event.id)
+    this.emit('event', event)
   }
 
-  public fetch (filter ?: Filter) : Event[] {
-    return filterEvents(this.cache, filter)
+  _setActive () : void {
+    this.status  = 'ACTIVE'
+    this.promise = undefined
+    this.emit('ready', this)
+    this.client.emit('info', `[ INFO ] ${this.slug} Subscribed to:`, this.id)
   }
 
-  public async update (
-    filter : Filter = this.filter
-  ) : Promise<Subscription> {
-    /** send a subscription request to the relay. */
-    await this.client.connect()
-    return new Promise((resolve, reject) => {
-      // Configure our message payload and timeout.
-      const message = JSON.stringify([ 'REQ', this.id, filter ])
-      const errmsg  = Error(`Subscription ${this.id} timed out!`)
-      const timer   = setTimeout(() => { reject(errmsg) }, this.timeout)
-      this.within('eose', () => {
-        // If we receive an eose event,
-        // the subscription is ready.
-        clearTimeout(timer)
-        this.subscribed = true
-        this.client.emit('info', '[ INFO ] Subscribed with:', this.filter)
-        this.emit('ready', this)
-        resolve(this)
-      }, this.timeout)
-      // Send the subscription request to the relay.
+  _setLoading () : void {
+    this.status = 'LOADING'
+  }
+
+  _setTimeout () : void {
+    this.status = 'TIMEOUT'
+    this.client.emit('info', `[ INFO ] ${this.slug} Subscription timed out:`, this.id)
+  }
+
+  _activate (resolver : Function) : void {
+    const action = () : void => { this._setTimeout(); resolver() }
+    const timer  = setTimeout(action, this.opt.timeout)
+    this.within('eose', () => {
+      clearTimeout(timer)
+      this._setActive()
+      // To help with lagging eose events.
+      setTimeout(resolver, 500)
+    }, this.opt.timeout)
+    this._setLoading()
+  }
+
+  async _subscribe (filter ?: Filter) : Promise<void> {
+    if (filter !== undefined) this.filter = filter
+    const [ ok, data ] = await this.filterware.apply(this.filter)
+    if (ok) {
+      this.filter = data
+      const message = JSON.stringify([ 'REQ', this.id, this.filter ])
+      this.client.emit('info', `[ INFO ] ${this.slug} Subscribing with:`, this.filter)
       void this.client.send(message)
-    })
+    }
   }
 
-  public cancel () : void {
+  async update (filter ?: Filter) : Promise<void> {
+    /** send a subscription request to the relay. */
+    console.log(this.isActive, this.promise)
+    if (!this.isActive && this.promise === undefined) {
+      this.promise = new Promise((resolve) => {
+        this._activate(resolve)
+        void this._subscribe(filter)
+      })
+    }
+    return this.promise
+  }
+
+  async fetch (filter ?: Filter) : Promise<SignedEvent[]> {
+    if (!this.isActive) await this.update(filter)
+    return (filter !== undefined)
+      ? EventFilter.apply(this.cache, filter)
+      : this.cache
+  }
+
+  public close () : SignedEvent[] {
     /** Cancels the subscription. */
-    this.client.cancel(this.id)
+    if (this.isActive) {
+      this.client.cancel(this.id)
+    }
+    this.status = 'CLOSED'
+    return this.cache
   }
 }
